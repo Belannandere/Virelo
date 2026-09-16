@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ title }}</h1>
+        <p class="page-subtitle">
+            <strong>{{ filename }}</strong>
+            {% if size_kb %}· {{ size_kb }} KB{% endif %}
+            · saved as <code>{{ saved_as }}</code>
+        </p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-outline-secondary" href="/invoices">All invoices</a>
+    </div>
+</div>
+
+{% if pdf_error %}
+    <div class="alert alert-warning">{{ pdf_error }}</div>
+{% endif %}
+
+{% if ai_error %}
+    <div class="alert alert-warning">
+        <strong>AI extraction failed.</strong><br>
+        {{ ai_error }}
+    </div>
+{% endif %}
+
+{% if invoice %}
+    <div class="review-grid">
+        <div class="review-main">
+            <div class="card p-4">
+                <h2 class="section-title">Invoice</h2>
+                <div class="field"><span class="label">Supplier</span><span class="value">{{ invoice.supplier_name or "—" }}</span></div>
+                <div class="field"><span class="label">Invoice number</span><span class="value">{{ invoice.invoice_number or "—" }}</span></div>
+                <div class="field"><span class="label">Invoice date</span><span class="value">{{ invoice.invoice_date or "—" }}</span></div>
+                <div class="field"><span class="label">Due date</span><span class="value">{{ invoice.due_date or "—" }}</span></div>
+            </div>
+
+            <div class="card p-4 mt-4">
+                <h2 class="section-title">Financial</h2>
+                <div class="field"><span class="label">Currency</span><span class="value">{{ invoice.currency or "—" }}</span></div>
+                <div class="field"><span class="label">Subtotal</span><span class="value">{{ invoice.subtotal if invoice.subtotal is not none else "—" }}</span></div>
+                <div class="field"><span class="label">Tax</span><span class="value">{{ invoice.tax if invoice.tax is not none else "—" }}</span></div>
+                <div class="field field-total">
+                    <span class="label">Total</span>
+                    <span class="value">
+                        {{ invoice.total if invoice.total is not none else "—" }}
+                        {% if invoice.currency %}<span class="text-muted">{{ invoice.currency }}</span>{% endif %}
+                    </span>
+                </div>
+            </div>
+
+            {% if invoice.line_items %}
+                <div class="card p-4 mt-4">
+                    <h2 class="section-title">Line items</h2>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Description</th>
+                                    <th class="text-end">Qty</th>
+                                    <th class="text-end">Unit price</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for li in invoice.line_items %}
+                                    <tr>
+                                        <td>{{ li.description or "—" }}</td>
+                                        <td class="text-end">{{ li.quantity if li.quantity is not none else "—" }}</td>
+                                        <td class="text-end">{{ li.unit_price if li.unit_price is not none else "—" }}</td>
+                                        <td class="text-end">{{ li.total if li.total is not none else "—" }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="review-side">
+            {% if validation %}
+                <div class="card p-4">
+                    <h2 class="section-title">Validation</h2>
+                    {% if validation.status == "passed" and not validation.warnings %}
+                        <div class="validation-summary is-success">✓ All checks passed</div>
+                    {% elif validation.status == "passed" %}
+                        <div class="validation-summary is-info">✓ No critical errors</div>
+                    {% else %}
+                        <div class="validation-summary is-error">✗ Needs review</div>
+                    {% endif %}
+
+                    {% if validation.errors or validation.warnings %}
+                        <ul class="validation-list mt-3">
+                            {% for err in validation.errors %}
+                                <li class="error">✗ {{ err }}</li>
+                            {% endfor %}
+                            {% for warn in validation.warnings %}
+                                <li class="warning">⚠ {{ warn }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {% if document_id is defined and document_id %}
+                <div class="card p-4 mt-4">
+                    <h2 class="section-title">Actions</h2>
+
+                    {% if status is defined and status %}
+                        <div class="status-line mb-3">
+                            <span class="text-muted">Current status</span>
+                            {% if status == "approved" %}
+                                <span class="badge bg-success">✓ Approved</span>
+                            {% elif status == "rejected" %}
+                                <span class="badge bg-danger">× Rejected</span>
+                            {% elif status == "extracted" %}
+                                <span class="badge bg-primary">⚠ Review</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ status }}</span>
+                            {% endif %}
+                        </div>
+                        <hr>
+                    {% endif %}
+
+                    <div class="actions-stack">
+                        <form method="post" action="/invoices/{{ document_id }}/approve">
+                            <button class="btn btn-success btn-block" type="submit">✓ Approve</button>
+                        </form>
+                        <a class="btn btn-outline-secondary btn-block" href="/invoices/{{ document_id }}/edit">✎ Edit</a>
+                        <form method="post" action="/invoices/{{ document_id }}/reject">
+                            <button class="btn btn-outline-danger btn-block" type="submit">✗ Reject</button>
+                        </form>
+                        <a class="btn btn-outline-secondary btn-block" href="/invoices/{{ document_id }}/export.csv">⬇ Download CSV</a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endif %}
+
+{% if extraction %}
+    <details class="mt-4">
+        <summary>
+            Raw extracted text · {{ extraction.char_count }} characters · {{ extraction.page_count }} page(s)
+        </summary>
+        <pre class="extracted-text mt-2">{{ extraction.text[:3000] }}{% if extraction.char_count > 3000 %}
+… (truncated){% endif %}</pre>
+    </details>
+{% endif %}
+{% endblock %}

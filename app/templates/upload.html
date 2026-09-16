@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Upload invoice</h1>
+        <p class="page-subtitle">Upload a PDF and let AI extract the invoice details.</p>
+    </div>
+</div>
+
+{% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<form action="/upload" method="post" enctype="multipart/form-data" class="upload-form" id="upload-form">
+    <label for="file" class="dropzone dropzone-interactive" id="dropzone">
+        <input type="file" id="file" name="file" accept="application/pdf,.pdf" required hidden>
+        <div class="dropzone-icon">↑</div>
+        <div class="dropzone-title">Drop your invoice here</div>
+        <div class="dropzone-subtitle">or browse files</div>
+        <div class="dropzone-hint">PDF up to 10 MB</div>
+    </label>
+
+    <div class="selected-file" id="selected-file" hidden>
+        <div class="selected-file-icon">📄</div>
+        <div class="selected-file-info">
+            <div class="selected-file-name" id="selected-file-name"></div>
+            <div class="selected-file-size" id="selected-file-size"></div>
+        </div>
+        <div class="selected-file-check">✓</div>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-lg btn-block">Process Invoice</button>
+</form>
+
+<script>
+(function () {
+    var input = document.getElementById('file');
+    var dropzone = document.getElementById('dropzone');
+    var selectedBox = document.getElementById('selected-file');
+    var nameEl = document.getElementById('selected-file-name');
+    var sizeEl = document.getElementById('selected-file-size');
+
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    }
+
+    function showFile(file) {
+        nameEl.textContent = file.name;
+        sizeEl.textContent = formatSize(file.size);
+        selectedBox.hidden = false;
+        dropzone.classList.add('dropzone-has-file');
+    }
+
+    input.addEventListener('change', function () {
+        if (input.files.length > 0) showFile(input.files[0]);
+    });
+
+    ['dragenter', 'dragover'].forEach(function (ev) {
+        dropzone.addEventListener(ev, function (e) {
+            e.preventDefault();
+            dropzone.classList.add('dropzone-dragover');
+        });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+        dropzone.addEventListener(ev, function (e) {
+            e.preventDefault();
+            dropzone.classList.remove('dropzone-dragover');
+        });
+    });
+    dropzone.addEventListener('drop', function (e) {
+        var files = e.dataTransfer.files;
+        if (files.length > 0) {
+            input.files = files;
+            showFile(files[0]);
+        }
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-badge">
+        <span class="hero-badge-dot"></span>
+        AI-powered invoice processing
+    </div>
+    <h1 class="hero-title">Automate your invoice processing</h1>
+    <p class="hero-subtitle">
+        Upload a PDF invoice and let AI extract, validate and organize the data for you.
+    </p>
+    <div class="hero-actions">
+        <a class="btn btn-primary btn-lg" href="/upload">Upload Invoice</a>
+        <a class="btn btn-outline-secondary btn-lg" href="/invoices">View invoices</a>
+    </div>
+    <ul class="hero-features">
+        <li><span class="check">✓</span> AI-powered extraction</li>
+        <li><span class="check">✓</span> Automatic validation</li>
+        <li><span class="check">✓</span> CSV export</li>
+    </ul>
+</section>
+
+<section class="upload-card">
+    <a href="/upload" class="dropzone-link">
+        <div class="dropzone">
+            <div class="dropzone-icon">↑</div>
+            <div class="dropzone-title">Drop your invoice here</div>
+            <div class="dropzone-subtitle">or click to browse your files</div>
+            <div class="dropzone-hint">PDF up to 10 MB</div>
+        </div>
+    </a>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section class="section">
+    <div class="section-header">
+        <h2>How it works</h2>
+        <p>From invoice PDF to structured data in three simple steps.</p>
+    </div>
+
+    <div class="steps">
+        <div class="step">
+            <div class="step-icon" data-step="1">↑</div>
+            <h3 class="step-title">Upload</h3>
+            <p class="step-desc">Upload your invoice PDF</p>
+        </div>
+
+        <div class="step-arrow" aria-hidden="true">→</div>
+
+        <div class="step">
+            <div class="step-icon" data-step="2">✨</div>
+            <h3 class="step-title">AI extracts</h3>
+            <p class="step-desc">AI extracts the key invoice data</p>
+        </div>
+
+        <div class="step-arrow" aria-hidden="true">→</div>
+
+        <div class="step">
+            <div class="step-icon" data-step="3">✓</div>
+            <h3 class="step-title">Review &amp; export</h3>
+            <p class="step-desc">Review the results and export to CSV</p>
+        </div>
+    </div>
+</section>
+
+<!-- ============ EXAMPLE RESULT ============ -->
+<section class="section">
+    <div class="section-header">
+        <h2>See what Virelo extracts</h2>
+        <p>Turn an invoice PDF into clean, structured data in seconds.</p>
+    </div>
+
+    <div class="demo-card">
+        <!-- Left: PDF mock -->
+        <div class="demo-pdf">
+            <div class="demo-pdf-frame">
+                <div class="demo-pdf-header">
+                    <span>📄</span>
+                    <span>invoice_2026.pdf</span>
+                </div>
+                <div class="demo-pdf-lines">
+                    <div class="demo-pdf-line title"></div>
+                    <div class="demo-pdf-line short"></div>
+                    <div class="demo-pdf-line wide"></div>
+                    <div class="demo-pdf-line medium"></div>
+                    <div class="demo-pdf-line wide"></div>
+                    <div class="demo-pdf-line wide"></div>
+                    <div class="demo-pdf-line medium"></div>
+                    <div class="demo-pdf-line total"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: extracted data -->
+        <div class="demo-data">
+            <div class="section-title">Extracted data</div>
+
+            <div class="demo-row"><span>Vendor</span><span>Acme Inc.</span></div>
+            <div class="demo-row"><span>Invoice #</span><span>INV-1042</span></div>
+            <div class="demo-row"><span>Date</span><span>Mar 12, 2026</span></div>
+            <div class="demo-row"><span>Due date</span><span>Apr 12, 2026</span></div>
+            <div class="demo-row"><span>Subtotal</span><span>$1,240.00</span></div>
+            <div class="demo-row"><span>Tax</span><span>$124.00</span></div>
+            <div class="demo-row demo-row-total"><span>Total</span><span>$1,364.00</span></div>
+
+            <div class="demo-actions">
+                <button type="button" class="btn btn-outline-secondary btn-sm">
+                    ⬇ Download CSV
+                </button>
+                <p class="demo-caption">Structured data ready for export</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="features">
+    <div class="feature-card">
+        <div class="feature-icon">✨</div>
+        <h3>AI Extraction</h3>
+        <p>Extract invoice data automatically with a local Llama model.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">✓</div>
+        <h3>Validation</h3>
+        <p>Detect missing or inconsistent data before saving.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">⬇</div>
+        <h3>Export</h3>
+        <p>Download structured invoice data as CSV.</p>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Edit invoice</h1>
+        <p class="page-subtitle">Update the fields below. Line items are read-only.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-outline-secondary" href="/invoices/{{ document_id }}">← Cancel</a>
+    </div>
+</div>
+
+<form method="post" action="/invoices/{{ document_id }}/edit">
+    <div class="card p-4">
+        <h2 class="section-title">Invoice</h2>
+        <div class="form-grid">
+            <div>
+                <label class="form-label" for="supplier_name">Supplier</label>
+                <input class="form-control" id="supplier_name" name="supplier_name" value="{{ record.supplier_name or '' }}">
+            </div>
+            <div>
+                <label class="form-label" for="invoice_number">Invoice number</label>
+                <input class="form-control" id="invoice_number" name="invoice_number" value="{{ record.invoice_number or '' }}">
+            </div>
+            <div>
+                <label class="form-label" for="invoice_date">Invoice date</label>
+                <input class="form-control" id="invoice_date" name="invoice_date" value="{{ record.invoice_date or '' }}" placeholder="YYYY-MM-DD">
+            </div>
+            <div>
+                <label class="form-label" for="due_date">Due date</label>
+                <input class="form-control" id="due_date" name="due_date" value="{{ record.due_date or '' }}" placeholder="YYYY-MM-DD">
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-4 mt-4">
+        <h2 class="section-title">Financial</h2>
+        <div class="form-grid form-grid-4">
+            <div>
+                <label class="form-label" for="currency">Currency</label>
+                <input class="form-control" id="currency" name="currency" value="{{ record.currency or '' }}" placeholder="EUR">
+            </div>
+            <div>
+                <label class="form-label" for="subtotal">Subtotal</label>
+                <input class="form-control" id="subtotal" name="subtotal" value="{{ record.subtotal if record.subtotal is not none else '' }}">
+            </div>
+            <div>
+                <label class="form-label" for="tax">Tax</label>
+                <input class="form-control" id="tax" name="tax" value="{{ record.tax if record.tax is not none else '' }}">
+            </div>
+            <div>
+                <label class="form-label" for="total">Total</label>
+                <input class="form-control" id="total" name="total" value="{{ record.total if record.total is not none else '' }}">
+            </div>
+        </div>
+    </div>
+
+    {% if record.line_items %}
+        <div class="card p-4 mt-4">
+            <h2 class="section-title">Line items (read-only)</h2>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th class="text-end">Qty</th>
+                            <th class="text-end">Unit price</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for li in record.line_items %}
+                            <tr>
+                                <td>{{ li.description or "—" }}</td>
+                                <td class="text-end">{{ li.quantity if li.quantity is not none else "—" }}</td>
+                                <td class="text-end">{{ li.unit_price if li.unit_price is not none else "—" }}</td>
+                                <td class="text-end">{{ li.total if li.total is not none else "—" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="form-actions">
+        <button class="btn btn-primary" type="submit">Save changes</button>
+        <a class="btn btn-outline-secondary" href="/invoices/{{ document_id }}">Cancel</a>
+    </div>
+</form>
+{% endblock %}

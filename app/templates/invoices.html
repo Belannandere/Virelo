@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% set total = documents|length %}
+{% set approved = documents|selectattr('status', 'equalto', 'approved')|list|length %}
+{% set rejected = documents|selectattr('status', 'equalto', 'rejected')|list|length %}
+{% set review = total - approved - rejected %}
+
+<div class="page-header">
+    <div>
+        <h1>Invoices</h1>
+        <p class="page-subtitle">Manage and review your processed invoices.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-outline-secondary" href="/invoices/export.csv">⬇ Download all CSV</a>
+        <a class="btn btn-primary" href="/upload">+ Upload invoice</a>
+    </div>
+</div>
+
+{% if documents %}
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Total</div>
+            <div class="stat-value">{{ total }}</div>
+            <div class="stat-hint">invoice{% if total != 1 %}s{% endif %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Approved</div>
+            <div class="stat-value">{{ approved }}</div>
+            <div class="stat-hint">completed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Review</div>
+            <div class="stat-value">{{ review }}</div>
+            <div class="stat-hint">need review</div>
+        </div>
+    </div>
+
+    <div class="card table-card">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Invoice</th>
+                        <th>Supplier</th>
+                        <th>Date</th>
+                        <th class="text-end">Amount</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                        <tr>
+                            <td>
+                                {% if doc.invoice and doc.invoice.invoice_number %}
+                                    <span class="mono">{{ doc.invoice.invoice_number }}</span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if doc.invoice and doc.invoice.supplier_name %}
+                                    {{ doc.invoice.supplier_name }}
+                                {% else %}
+                                    <span class="text-muted">{{ doc.filename }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if doc.invoice and doc.invoice.invoice_date %}
+                                    {{ doc.invoice.invoice_date }}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end mono">
+                                {% if doc.invoice and doc.invoice.total is not none %}
+                                    {{ doc.invoice.total }}
+                                    {% if doc.invoice.currency %}<span class="text-muted">{{ doc.invoice.currency }}</span>{% endif %}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if doc.status == "approved" %}
+                                    <span class="badge bg-success">✓ Approved</span>
+                                {% elif doc.status == "rejected" %}
+                                    <span class="badge bg-danger">× Rejected</span>
+                                {% elif doc.status == "extracted" %}
+                                    <span class="badge bg-primary">⚠ Review</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ doc.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-secondary" href="/invoices/{{ doc.id }}">View</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📄</div>
+        <h2 class="empty-title">No invoices yet</h2>
+        <p class="empty-text">
+            Upload your first invoice and AI will extract the details automatically.
+        </p>
+        <a class="btn btn-primary" href="/upload">Upload invoice</a>
+        <p class="empty-hint">Your processed invoices will appear here.</p>
+    </div>
+{% endif %}
+{% endblock %}

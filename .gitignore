@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Env
+.env
+
+# Project data
+uploads/
+*.db
+invoices.db
+invoices.db-journal
+
+# Editor
+.vscode/
+.idea/
+.DS_Store
