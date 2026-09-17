@@ -133,7 +133,8 @@
                         <form method="post" action="/invoices/{{ document_id }}/reject">
                             <button class="btn btn-outline-danger btn-block" type="submit">✗ Reject</button>
                         </form>
-                        <a class="btn btn-outline-secondary btn-block" href="/invoices/{{ document_id }}/export.csv">⬇ Download CSV</a>
+                        <a class="btn btn-outline-secondary btn-block" href="/invoices/{{ document_id }}/export.csv">⬇ CSV</a>
+                        <a class="btn btn-outline-secondary btn-block" href="/invoices/{{ document_id }}/export.xlsx">⬇ Excel</a>
                     </div>
                 </div>
             {% endif %}

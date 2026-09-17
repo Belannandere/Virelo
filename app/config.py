@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     session_max_age: int = 60 * 60 * 24 * 14  # 14 days
 
+    # OAuth
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    oauth_redirect_base_url: str = "http://localhost:8000"
+
     def model_post_init(self, __context) -> None:
         if not self.database_url:
             self.database_url = f"sqlite:///{(BASE_DIR / 'invoices.db').as_posix()}"

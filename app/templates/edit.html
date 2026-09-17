@@ -4,32 +4,36 @@
 <div class="page-header">
     <div>
         <h1>Edit invoice</h1>
-        <p class="page-subtitle">Update the fields below. Line items are read-only.</p>
+        <p class="page-subtitle">Update fields and line items, then save to re-run validation.</p>
     </div>
     <div class="page-actions">
         <a class="btn btn-outline-secondary" href="/invoices/{{ document_id }}">← Cancel</a>
     </div>
 </div>
 
-<form method="post" action="/invoices/{{ document_id }}/edit">
+<form method="post" action="/invoices/{{ document_id }}/edit" id="edit-form">
     <div class="card p-4">
         <h2 class="section-title">Invoice</h2>
         <div class="form-grid">
             <div>
                 <label class="form-label" for="supplier_name">Supplier</label>
-                <input class="form-control" id="supplier_name" name="supplier_name" value="{{ record.supplier_name or '' }}">
+                <input class="form-control" id="supplier_name" name="supplier_name"
+                       value="{{ record.supplier_name or '' }}">
             </div>
             <div>
                 <label class="form-label" for="invoice_number">Invoice number</label>
-                <input class="form-control" id="invoice_number" name="invoice_number" value="{{ record.invoice_number or '' }}">
+                <input class="form-control" id="invoice_number" name="invoice_number"
+                       value="{{ record.invoice_number or '' }}">
             </div>
             <div>
                 <label class="form-label" for="invoice_date">Invoice date</label>
-                <input class="form-control" id="invoice_date" name="invoice_date" value="{{ record.invoice_date or '' }}" placeholder="YYYY-MM-DD">
+                <input class="form-control" id="invoice_date" name="invoice_date"
+                       value="{{ record.invoice_date or '' }}" placeholder="YYYY-MM-DD">
             </div>
             <div>
                 <label class="form-label" for="due_date">Due date</label>
-                <input class="form-control" id="due_date" name="due_date" value="{{ record.due_date or '' }}" placeholder="YYYY-MM-DD">
+                <input class="form-control" id="due_date" name="due_date"
+                       value="{{ record.due_date or '' }}" placeholder="YYYY-MM-DD">
             </div>
         </div>
     </div>
@@ -39,54 +43,150 @@
         <div class="form-grid form-grid-4">
             <div>
                 <label class="form-label" for="currency">Currency</label>
-                <input class="form-control" id="currency" name="currency" value="{{ record.currency or '' }}" placeholder="EUR">
+                <input class="form-control" id="currency" name="currency"
+                       value="{{ record.currency or '' }}" placeholder="EUR">
             </div>
             <div>
                 <label class="form-label" for="subtotal">Subtotal</label>
-                <input class="form-control" id="subtotal" name="subtotal" value="{{ record.subtotal if record.subtotal is not none else '' }}">
+                <input class="form-control" id="subtotal" name="subtotal"
+                       value="{{ record.subtotal if record.subtotal is not none else '' }}">
             </div>
             <div>
                 <label class="form-label" for="tax">Tax</label>
-                <input class="form-control" id="tax" name="tax" value="{{ record.tax if record.tax is not none else '' }}">
+                <input class="form-control" id="tax" name="tax"
+                       value="{{ record.tax if record.tax is not none else '' }}">
             </div>
             <div>
                 <label class="form-label" for="total">Total</label>
-                <input class="form-control" id="total" name="total" value="{{ record.total if record.total is not none else '' }}">
+                <input class="form-control" id="total" name="total"
+                       value="{{ record.total if record.total is not none else '' }}">
             </div>
         </div>
     </div>
 
-    {% if record.line_items %}
-        <div class="card p-4 mt-4">
-            <h2 class="section-title">Line items (read-only)</h2>
-            <div class="table-responsive">
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>Description</th>
-                            <th class="text-end">Qty</th>
-                            <th class="text-end">Unit price</th>
-                            <th class="text-end">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for li in record.line_items %}
-                            <tr>
-                                <td>{{ li.description or "—" }}</td>
-                                <td class="text-end">{{ li.quantity if li.quantity is not none else "—" }}</td>
-                                <td class="text-end">{{ li.unit_price if li.unit_price is not none else "—" }}</td>
-                                <td class="text-end">{{ li.total if li.total is not none else "—" }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+    <div class="card p-4 mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h2 class="section-title" style="margin: 0;">Line items</h2>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="add-row">
+                + Add line item
+            </button>
         </div>
-    {% endif %}
+
+        <div class="table-responsive">
+            <table class="table table-sm line-items-table" id="line-items-table">
+                <thead>
+                    <tr>
+                        <th style="width: 42%;">Description</th>
+                        <th class="text-end" style="width: 14%;">Qty</th>
+                        <th class="text-end" style="width: 18%;">Unit price</th>
+                        <th class="text-end" style="width: 18%;">Total</th>
+                        <th style="width: 8%;"></th>
+                    </tr>
+                </thead>
+                <tbody id="line-items-body">
+                    {% for li in record.line_items %}
+                        <tr class="line-item-row">
+                            <td>
+                                <input class="form-control form-control-sm"
+                                       name="li_description"
+                                       value="{{ li.description or '' }}">
+                            </td>
+                            <td>
+                                <input class="form-control form-control-sm text-end"
+                                       name="li_quantity"
+                                       value="{{ li.quantity if li.quantity is not none else '' }}">
+                            </td>
+                            <td>
+                                <input class="form-control form-control-sm text-end"
+                                       name="li_unit_price"
+                                       value="{{ li.unit_price if li.unit_price is not none else '' }}">
+                            </td>
+                            <td>
+                                <input class="form-control form-control-sm text-end"
+                                       name="li_total"
+                                       value="{{ li.total if li.total is not none else '' }}">
+                            </td>
+                            <td class="text-end">
+                                <button type="button"
+                                        class="line-item-remove"
+                                        aria-label="Remove row"
+                                        title="Remove row">×</button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if not record.line_items %}
+            <p class="text-muted small mt-2" id="empty-hint">
+                No line items yet. Click <strong>+ Add line item</strong> to add one.
+            </p>
+        {% endif %}
+    </div>
 
     <div class="form-actions">
         <button class="btn btn-primary" type="submit">Save changes</button>
         <a class="btn btn-outline-secondary" href="/invoices/{{ document_id }}">Cancel</a>
     </div>
 </form>
+
+{# Template for new rows — cloned by JS #}
+<template id="line-item-template">
+    <tr class="line-item-row">
+        <td>
+            <input class="form-control form-control-sm" name="li_description" value="">
+        </td>
+        <td>
+            <input class="form-control form-control-sm text-end" name="li_quantity" value="">
+        </td>
+        <td>
+            <input class="form-control form-control-sm text-end" name="li_unit_price" value="">
+        </td>
+        <td>
+            <input class="form-control form-control-sm text-end" name="li_total" value="">
+        </td>
+        <td class="text-end">
+            <button type="button"
+                    class="line-item-remove"
+                    aria-label="Remove row"
+                    title="Remove row">×</button>
+        </td>
+    </tr>
+</template>
+
+<script>
+(function () {
+    var table = document.getElementById('line-items-table');
+    var tbody = document.getElementById('line-items-body');
+    var tpl = document.getElementById('line-item-template');
+    var addBtn = document.getElementById('add-row');
+    var emptyHint = document.getElementById('empty-hint');
+
+    function bindRemove(row) {
+        var btn = row.querySelector('.line-item-remove');
+        if (btn) {
+            btn.addEventListener('click', function () {
+                row.remove();
+                if (emptyHint) emptyHint.style.display = '';
+            });
+        }
+    }
+
+    // Existing rows
+    tbody.querySelectorAll('.line-item-row').forEach(bindRemove);
+
+    // Add row
+    addBtn.addEventListener('click', function () {
+        var frag = tpl.content.cloneNode(true);
+        var row = frag.querySelector('.line-item-row');
+        tbody.appendChild(frag);
+        bindRemove(row);
+        if (emptyHint) emptyHint.style.display = 'none';
+        // Focus the first input of the new row
+        var firstInput = row.querySelector('input[name="li_description"]');
+        if (firstInput) firstInput.focus();
+    });
+})();
+</script>
 {% endblock %}

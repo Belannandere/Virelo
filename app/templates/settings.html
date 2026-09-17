@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Settings</h1>
+        <p class="page-subtitle">Manage your account, password and data.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-outline-secondary" href="/account">View usage</a>
+    </div>
+</div>
+
+{% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+{% if success %}
+    <div class="alert alert-success">{{ success }}</div>
+{% endif %}
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card p-4">
+            <h2 class="section-title">Email</h2>
+            <div class="field">
+                <span class="label">Current</span>
+                <span class="value">{{ current_user.email }}</span>
+            </div>
+
+            <form method="post" action="/settings/email" class="mt-3">
+                <div class="auth-field">
+                    <label class="auth-label" for="new_email">New email</label>
+                    <input class="auth-input" type="email" id="new_email" name="new_email"
+                           required placeholder="you@example.com">
+                </div>
+
+                {% if has_password %}
+                    <div class="auth-field">
+                        <label class="auth-label" for="email_current_password">
+                            Current password
+                        </label>
+                        <input class="auth-input" type="password"
+                               id="email_current_password"
+                               name="current_password" required
+                               autocomplete="current-password">
+                    </div>
+                {% endif %}
+
+                <button class="btn btn-primary" type="submit">Change email</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card p-4">
+            <h2 class="section-title">Password</h2>
+            {% if has_password %}
+                <p class="text-muted small mb-3">
+                    You can log in with email and password.
+                </p>
+            {% else %}
+                <p class="text-muted small mb-3">
+                    Your account uses OAuth. Set a password to also log in with
+                    email + password.
+                </p>
+            {% endif %}
+
+            <form method="post" action="/settings/password">
+                {% if has_password %}
+                    <div class="auth-field">
+                        <label class="auth-label" for="current_password">
+                            Current password
+                        </label>
+                        <input class="auth-input" type="password"
+                               id="current_password" name="current_password"
+                               required autocomplete="current-password">
+                    </div>
+                {% endif %}
+
+                <div class="auth-field">
+                    <label class="auth-label" for="new_password">New password</label>
+                    <input class="auth-input" type="password"
+                           id="new_password" name="new_password"
+                           minlength="8" required autocomplete="new-password">
+                    <div class="auth-hint">At least 8 characters.</div>
+                </div>
+
+                <div class="auth-field">
+                    <label class="auth-label" for="new_password_confirm">
+                        Confirm new password
+                    </label>
+                    <input class="auth-input" type="password"
+                           id="new_password_confirm" name="new_password_confirm"
+                           required autocomplete="new-password">
+                </div>
+
+                <button class="btn btn-primary" type="submit">
+                    {% if has_password %}Change password{% else %}Set password{% endif %}
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card p-4 mt-4" style="border-color: var(--danger-border);">
+    <h2 class="section-title" style="color: var(--danger-text);">Danger zone</h2>
+    <p class="text-muted small mb-3">
+        Deleting your account removes all documents, invoices and settings.
+        This action cannot be undone.
+    </p>
+
+    <details>
+        <summary class="text-muted">Show delete account form</summary>
+        <form method="post" action="/settings/delete" class="mt-3">
+            <div class="auth-field">
+                <label class="auth-label" for="confirm_email">
+                    Type your email <code>{{ current_user.email }}</code> to confirm
+                </label>
+                <input class="auth-input" type="text" id="confirm_email"
+                       name="confirm_email" required>
+            </div>
+
+            {% if has_password %}
+                <div class="auth-field">
+                    <label class="auth-label" for="delete_current_password">
+                        Current password
+                    </label>
+                    <input class="auth-input" type="password"
+                           id="delete_current_password"
+                           name="current_password" required
+                           autocomplete="current-password">
+                </div>
+            {% endif %}
+
+            <button class="btn btn-outline-danger" type="submit">
+                Permanently delete my account
+            </button>
+        </form>
+    </details>
+</div>
+{% endblock %}

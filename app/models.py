@@ -9,13 +9,18 @@ class User(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     email: str = Field(unique=True, index=True)
-    password_hash: str
+    # Nullable for OAuth-only accounts
+    password_hash: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     plan: str = "free"
     invoices_used: int = 0
     invoices_limit: int = 10
     usage_period_start: datetime = Field(default_factory=datetime.utcnow)
+
+    # OAuth identifiers
+    google_id: Optional[str] = Field(default=None, index=True)
+    github_id: Optional[str] = Field(default=None, index=True)
 
     documents: list["Document"] = Relationship(back_populates="user")
 

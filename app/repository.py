@@ -177,3 +177,49 @@ def list_invoice_records_for_user(
         .order_by(InvoiceRecord.created_at.desc())
     )
     return list(session.exec(statement).all())
+
+def delete_user_and_data(session: Session, user_id: int) -> list[str]:
+    """
+    Delete a user and everything they own.
+    Returns a list of file paths that the caller should unlink from disk.
+    """
+    from app.models import (
+        Document,
+        InvoiceRecord,
+        LineItemRecord,
+        User,
+        ValidationRecord,
+    )
+
+    documents = session.exec(
+        select(Document).where(Document.user_id == user_id)
+    ).all()
+    filepaths = [d.filepath for d in documents]
+
+    for doc in documents:
+        invoice = session.exec(
+            select(InvoiceRecord).where(InvoiceRecord.document_id == doc.id)
+        ).first()
+        if invoice is not None:
+            for li in session.exec(
+                select(LineItemRecord).where(
+                    LineItemRecord.invoice_id == invoice.id
+                )
+            ).all():
+                session.delete(li)
+            val = session.exec(
+                select(ValidationRecord).where(
+                    ValidationRecord.invoice_id == invoice.id
+                )
+            ).first()
+            if val is not None:
+                session.delete(val)
+            session.delete(invoice)
+        session.delete(doc)
+
+    user = session.get(User, user_id)
+    if user is not None:
+        session.delete(user)
+
+    session.commit()
+    return filepaths

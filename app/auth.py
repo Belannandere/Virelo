@@ -25,7 +25,9 @@ def hash_password(password: str) -> str:
     return hashed.decode("utf-8")
 
 
-def verify_password(password: str, password_hash: str) -> bool:
+def verify_password(password: str, password_hash: Optional[str]) -> bool:
+    if not password_hash:
+        return False
     try:
         return bcrypt.checkpw(
             password.encode("utf-8"), password_hash.encode("utf-8")
@@ -59,9 +61,7 @@ def get_current_user_optional(
         return None
 
     # Reset monthly usage counter if we crossed into a new month.
-    # Doing it here guarantees the UI always reflects the current
-    # period — even when the user only views the landing page or
-    # the navbar without touching the upload flow.
+    # Doing it here guarantees the UI always reflects the current period.
     from app.limiter import ensure_usage_period
     ensure_usage_period(user, session)
 
@@ -81,6 +81,65 @@ def get_current_user(
 def get_user_by_email(session: Session, email: str) -> Optional[User]:
     normalized = email.strip().lower()
     return session.exec(select(User).where(User.email == normalized)).first()
+
+
+def get_or_create_oauth_user(
+    session: Session,
+    *,
+    provider: str,
+    provider_id: str,
+    email: str,
+) -> User:
+    """Find or create a user by OAuth identity.
+
+    Order of checks:
+      1. By provider_id  — account already linked to this OAuth identity.
+      2. By email        — user has a password account with same email; link it.
+      3. Otherwise       — create a new passwordless account.
+
+    Note: callers must verify the email before calling this, because step 2
+    links to an existing account. Google returns verified emails; for GitHub
+    we fetch the primary verified email in the callback.
+    """
+    if provider not in ("google", "github"):
+        raise ValueError(f"Unknown OAuth provider: {provider}")
+
+    email = email.strip().lower()
+
+    # 1. By provider_id
+    if provider == "google":
+        existing = session.exec(
+            select(User).where(User.google_id == provider_id)
+        ).first()
+    else:
+        existing = session.exec(
+            select(User).where(User.github_id == provider_id)
+        ).first()
+    if existing is not None:
+        return existing
+
+    # 2. By email — link existing password account
+    user = get_user_by_email(session, email)
+    if user is not None:
+        if provider == "google":
+            user.google_id = provider_id
+        else:
+            user.github_id = provider_id
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        return user
+
+    # 3. Create new passwordless user
+    user = User(email=email, password_hash=None)
+    if provider == "google":
+        user.google_id = provider_id
+    else:
+        user.github_id = provider_id
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
 
 
 def utcnow() -> datetime:
