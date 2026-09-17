@@ -5,7 +5,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
-    """Все настройки читаются из файла .env в корне проекта."""
+    """All settings are read from the .env file in the project root."""
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
@@ -20,9 +20,7 @@ class Settings(BaseSettings):
     database_url: str = ""
 
     def model_post_init(self, __context) -> None:
-        # Если DATABASE_URL не задан в .env — строим абсолютный путь
-        # к invoices.db в корне проекта. Так база всегда одна,
-        # независимо от того, из какой папки запущен uvicorn.
+
         if not self.database_url:
             self.database_url = (
                 f"sqlite:///{(BASE_DIR / 'invoices.db').as_posix()}"
@@ -35,6 +33,5 @@ class Settings(BaseSettings):
         return path
 
 
-# ВАЖНО: этот объект импортируют другие модули (app.ai, app.database, ...).
-# Без него получим ImportError: cannot import name 'settings'.
+
 settings = Settings()

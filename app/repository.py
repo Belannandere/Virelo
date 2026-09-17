@@ -102,7 +102,7 @@ def update_invoice(
     if record is None:
         raise ValueError(f"No invoice record for document {document_id}")
 
-    # --- Основные поля ---
+
     record.supplier_name = invoice.supplier_name
     record.invoice_number = invoice.invoice_number
     record.invoice_date = invoice.invoice_date
@@ -114,7 +114,7 @@ def update_invoice(
     session.add(record)
     session.commit()
 
-    # --- Строки: проще удалить и вставить заново, чем синхронизировать ---
+
     old_items = session.exec(
         select(LineItemRecord).where(LineItemRecord.invoice_id == record.id)
     ).all()
@@ -134,7 +134,7 @@ def update_invoice(
         )
     session.commit()
 
-    # --- Валидация: то же самое — удалить и перезаписать ---
+
     old_val = session.exec(
         select(ValidationRecord).where(ValidationRecord.invoice_id == record.id)
     ).first()

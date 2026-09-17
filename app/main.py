@@ -11,15 +11,16 @@ from fastapi import (
     Request,
     UploadFile,
 )
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.ai import AIExtractionError, ai_extractor
 from app.config import settings
 from app.database import get_session, init_db
-from app.models import Document
+from app.export import records_to_csv
+from app.models import Document, InvoiceRecord
 from app.pdf import PDFExtractionError, ScannedPDFError, pdf_extractor
 from app.repository import (
     list_documents,
@@ -28,16 +29,12 @@ from app.repository import (
     update_invoice,
 )
 from app.schemas import Invoice, LineItem
+from app.timing import timer
 from app.validation import ValidationResult, validate_invoice
-from fastapi.responses import Response
-from sqlmodel import select
-
-from app.export import records_to_csv
-from app.models import InvoiceRecord
 
 BASE_DIR = Path(__file__).resolve().parent
 
-app = FastAPI(title="Invoice MVP")
+app = FastAPI(title="Virelo")
 
 
 @app.on_event("startup")
@@ -49,9 +46,9 @@ app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 
-# =============================================================
+
 # Home & health
-# =============================================================
+
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
@@ -63,9 +60,28 @@ def health():
     return {"status": "ok"}
 
 
-# =============================================================
+
+# CSV export  
+
+
+@app.get("/invoices/export.csv")
+def export_all_csv(session: Session = Depends(get_session)):
+    records = list(
+        session.exec(
+            select(InvoiceRecord).order_by(InvoiceRecord.created_at.desc())
+        ).all()
+    )
+    csv_text = records_to_csv(records)
+    return Response(
+        content=csv_text,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="invoices.csv"'},
+    )
+
+
+
 # Invoices list
-# =============================================================
+
 
 @app.get("/invoices", response_class=HTMLResponse)
 def invoices_list(
@@ -79,49 +95,10 @@ def invoices_list(
         {"title": "Invoices", "documents": documents},
     )
 
-# =============================================================
-# CSV export
-# =============================================================
-
-@app.get("/invoices/export.csv")
-def export_all_csv(session: Session = Depends(get_session)):
-    records = list(
-        session.exec(
-            select(InvoiceRecord).order_by(InvoiceRecord.created_at.desc())
-        ).all()
-    )
-    csv_text = records_to_csv(records)
-    return Response(
-        content=csv_text,
-        media_type="text/csv; charset=utf-8",
-        headers={
-            "Content-Disposition": 'attachment; filename="invoices.csv"'
-        },
-    )
 
 
-@app.get("/invoices/{document_id}/export.csv")
-def export_invoice_csv(
-    document_id: int,
-    session: Session = Depends(get_session),
-):
-    document = session.get(Document, document_id)
-    if document is None or document.invoice is None:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-
-    csv_text = records_to_csv([document.invoice])
-    filename = f"invoice_{document_id}.csv"
-    return Response(
-        content=csv_text,
-        media_type="text/csv; charset=utf-8",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"'
-        },
-    )
-
-# =============================================================
 # Invoice detail
-# =============================================================
+
 
 @app.get("/invoices/{document_id}", response_class=HTMLResponse)
 def invoice_detail(
@@ -133,8 +110,6 @@ def invoice_detail(
     if document is None:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    # Восстанавливаем Pydantic-объекты из записей БД,
-    # чтобы переиспользовать тот же шаблон result.html.
     invoice: Invoice | None = None
     validation: ValidationResult | None = None
 
@@ -166,7 +141,6 @@ def invoice_detail(
                 warnings=json.loads(record.validation.warnings or "[]"),
             )
 
-    # Размер файла берём с диска — в БД мы его не сохраняли.
     size_kb: float | None = None
     try:
         size_kb = round(Path(document.filepath).stat().st_size / 1024, 1)
@@ -177,7 +151,7 @@ def invoice_detail(
         "filename": document.filename,
         "saved_as": Path(document.filepath).name,
         "size_kb": size_kb,
-        "extraction": None,   # PDF мы уже не храним в памяти
+        "extraction": None,
         "invoice": invoice,
         "validation": validation,
         "pdf_error": None,
@@ -190,9 +164,31 @@ def invoice_detail(
     )
 
 
-# =============================================================
+
+# Single-invoice CSV export
+
+
+@app.get("/invoices/{document_id}/export.csv")
+def export_invoice_csv(
+    document_id: int,
+    session: Session = Depends(get_session),
+):
+    document = session.get(Document, document_id)
+    if document is None or document.invoice is None:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    csv_text = records_to_csv([document.invoice])
+    filename = f"invoice_{document_id}.csv"
+    return Response(
+        content=csv_text,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+
 # Approve / Reject
-# =============================================================
+
 
 @app.post("/invoices/{document_id}/approve")
 def invoice_approve(
@@ -218,9 +214,9 @@ def invoice_reject(
     return RedirectResponse(url=f"/invoices/{document_id}", status_code=303)
 
 
-# =============================================================
+
 # Edit
-# =============================================================
+
 
 @app.get("/invoices/{document_id}/edit", response_class=HTMLResponse)
 def invoice_edit_form(
@@ -261,7 +257,6 @@ def invoice_edit_submit(
     if document is None or document.invoice is None:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    # Формы приходят строками — превращаем в числа или None.
     def to_float(s: str) -> float | None:
         s = (s or "").strip()
         if not s:
@@ -284,13 +279,11 @@ def invoice_edit_submit(
         subtotal=to_float(subtotal),
         tax=to_float(tax),
         total=to_float(total),
-        line_items=[],  # строки пока не редактируем
+        line_items=[],
     )
 
-    # Перепрогоняем валидацию на исправленных значениях.
     validation = validate_invoice(edited)
 
-    # Исходные строки сохраняем как есть — мы их не меняли.
     for li in document.invoice.line_items:
         edited.line_items.append(
             LineItem(
@@ -310,9 +303,9 @@ def invoice_edit_submit(
     return RedirectResponse(url=f"/invoices/{document_id}", status_code=303)
 
 
-# =============================================================
+
 # Upload
-# =============================================================
+
 
 @app.get("/upload", response_class=HTMLResponse)
 def upload_form(request: Request):
@@ -362,58 +355,60 @@ async def upload_submit(
     }
 
     # --- 3. Extract text from PDF ---
-    try:
-        extraction = pdf_extractor.extract_text(filepath)
-        ctx["extraction"] = extraction
-    except ScannedPDFError as exc:
-        ctx["pdf_error"] = str(exc)
-        # всё равно сохраняем документ со статусом "uploaded"
-        doc = save_extraction(
-            session,
-            filename=safe_name,
-            filepath=filepath,
-            invoice=None,
-            validation=None,
-        )
-        ctx["document_id"] = doc.id
-        ctx["status"] = doc.status
-        return templates.TemplateResponse(
-            request, "result.html", {**ctx, "title": "Scanned PDF"}
-        )
-    except PDFExtractionError as exc:
-        ctx["pdf_error"] = f"Could not extract text: {exc}"
-        doc = save_extraction(
-            session,
-            filename=safe_name,
-            filepath=filepath,
-            invoice=None,
-            validation=None,
-        )
-        ctx["document_id"] = doc.id
-        ctx["status"] = doc.status
-        return templates.TemplateResponse(
-            request, "result.html", {**ctx, "title": "Extraction failed"}
-        )
+    with timer("pdf_extract"):
+        try:
+            extraction = pdf_extractor.extract_text(filepath)
+            ctx["extraction"] = extraction
+        except ScannedPDFError as exc:
+            ctx["pdf_error"] = str(exc)
+            doc = save_extraction(
+                session,
+                filename=safe_name,
+                filepath=filepath,
+                invoice=None,
+                validation=None,
+            )
+            ctx["document_id"] = doc.id
+            ctx["status"] = doc.status
+            return templates.TemplateResponse(
+                request, "result.html", {**ctx, "title": "Scanned PDF"}
+            )
+        except PDFExtractionError as exc:
+            ctx["pdf_error"] = f"Could not extract text: {exc}"
+            doc = save_extraction(
+                session,
+                filename=safe_name,
+                filepath=filepath,
+                invoice=None,
+                validation=None,
+            )
+            ctx["document_id"] = doc.id
+            ctx["status"] = doc.status
+            return templates.TemplateResponse(
+                request, "result.html", {**ctx, "title": "Extraction failed"}
+            )
 
     # --- 4. AI extraction ---
     invoice = None
     validation = None
-    try:
-        invoice = await ai_extractor.extract_invoice(extraction.text)
-        validation = validate_invoice(invoice)
-        ctx["invoice"] = invoice
-        ctx["validation"] = validation
-    except AIExtractionError as exc:
-        ctx["ai_error"] = str(exc)
+    with timer("ai_extract"):
+        try:
+            invoice = await ai_extractor.extract_invoice(extraction.text)
+            validation = validate_invoice(invoice)
+            ctx["invoice"] = invoice
+            ctx["validation"] = validation
+        except AIExtractionError as exc:
+            ctx["ai_error"] = str(exc)
 
     # --- 5. Save to DB ---
-    doc = save_extraction(
-        session,
-        filename=safe_name,
-        filepath=filepath,
-        invoice=invoice,
-        validation=validation,
-    )
+    with timer("db_save"):
+        doc = save_extraction(
+            session,
+            filename=safe_name,
+            filepath=filepath,
+            invoice=invoice,
+            validation=validation,
+        )
     ctx["document_id"] = doc.id
     ctx["status"] = doc.status
 
@@ -422,9 +417,9 @@ async def upload_submit(
     )
 
 
-# =============================================================
+
 # Helpers
-# =============================================================
+
 
 def _upload_error(request: Request, message: str):
     return templates.TemplateResponse(

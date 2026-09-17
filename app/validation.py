@@ -3,10 +3,9 @@ from dataclasses import dataclass, field
 from app.schemas import Invoice
 
 
-# Насколько «не равно» допустимо.
-# Деньги округляются до центов, поэтому 0.02 (2 цента) — разумный запас.
+
 AMOUNT_TOLERANCE = 0.02
-# Строк может быть много, каждая может быть округлена на 1 цент — берём 5 центов.
+
 LINE_ITEMS_TOLERANCE = 0.05
 
 
@@ -29,7 +28,7 @@ def validate_invoice(invoice: Invoice) -> ValidationResult:
     errors: list[str] = []
     warnings: list[str] = []
 
-    # --- Обязательные поля ---
+
     if not invoice.supplier_name:
         errors.append("Supplier name is missing.")
     if not invoice.invoice_number:
@@ -37,7 +36,7 @@ def validate_invoice(invoice: Invoice) -> ValidationResult:
     if invoice.total is None:
         errors.append("Total is missing.")
 
-    # --- Не критичные, но желательные поля ---
+
     if not invoice.invoice_date:
         warnings.append("Invoice date is missing.")
     if not invoice.due_date:
@@ -45,7 +44,7 @@ def validate_invoice(invoice: Invoice) -> ValidationResult:
     if not invoice.currency:
         warnings.append("Currency is missing.")
 
-    # --- Арифметика: subtotal + tax == total ---
+
     if (
         invoice.subtotal is not None
         and invoice.tax is not None
@@ -85,7 +84,6 @@ def validate_invoice(invoice: Invoice) -> ValidationResult:
                     f"subtotal ({invoice.subtotal:.2f})."
                 )
 
-    # Итоговый статус: любая error переводит документ в "review".
-    # Warnings не блокируют, но остаются в списке — пользователь их увидит.
+
     status = "passed" if not errors else "review"
     return ValidationResult(status=status, errors=errors, warnings=warnings)

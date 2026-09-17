@@ -61,7 +61,7 @@ class ValidationRecord(SQLModel, table=True):
     invoice_id: int = Field(foreign_key="invoices.id", unique=True)
 
     status: str                         # passed | review
-    errors: str = ""                    # JSON-строка со списком
-    warnings: str = ""                  # JSON-строка со списком
+    errors: str = ""                    
+    warnings: str = ""                  
 
     invoice: Optional[InvoiceRecord] = Relationship(back_populates="validation")

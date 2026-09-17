@@ -211,13 +211,25 @@ h3 { font-size: 1rem; }
 .app-brand:hover { color: var(--text); }
 
 .app-brand-mark {
-    display: inline-block;
-    width: 24px;
-    height: 24px;
-    border-radius: 7px;
-    background: linear-gradient(135deg, var(--primary) 0%, #7c3aed 100%);
-    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.35);
+    display: block;
+    width: 32px;
+    height: 32px;
     flex-shrink: 0;
+    /* drop-shadow follows the SVG shape, not its bounding box */
+    filter: drop-shadow(0 2px 4px rgba(79, 70, 229, 0.32));
+    transition: var(--transition);
+}
+
+.app-brand:hover .app-brand-mark {
+    filter: drop-shadow(0 3px 8px rgba(79, 70, 229, 0.45));
+}
+
+.app-brand-name {
+    font-size: 1.02rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 1;
 }
 
 .app-nav-links {
