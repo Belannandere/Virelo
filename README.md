@@ -1,287 +1,388 @@
+🌐 **Language:** **English** · [Русский](README.ru.md)
 # Virelo
 
-Локальный MVP для автоматического извлечения данных из PDF-инвойсов
-с помощью локальной LLM (Ollama + Llama 3.2).
+**Local AI invoice processing.**  
+Turn PDF invoices into structured, validated data using a local LLM.
+
+```
+PDF  →  AI extraction  →  Validation  →  Review  →  CSV
+```
+
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+🌐 **Language:** **English** · [Русский](README.ru.md)
+
+---
 
 ## Demo
 
 <p align="center">
-  <img src="docs/demo.gif" alt="Virelo demo — upload an invoice, get structured data" width="720">
+  <img src="docs/demo.gif" alt="Virelo demo — upload an invoice and get structured data" width="720">
 </p>
 
-Upload an invoice PDF → AI extracts the fields → validate → export to CSV.
+Upload an invoice PDF → let AI extract the fields → review the result → export to CSV.
 
-## Что умеет
+> **Note:** This is an early MVP. Not every invoice format is handled perfectly yet. See [Limitations](#limitations).
 
-- Принимает PDF-инвойс через веб-форму (drag & drop).
-- Извлекает текст (pypdf — чистый Python).
-- Передаёт текст в локальную Llama через Ollama.
-- Получает структурированный JSON с полями инвойса.
-- Валидирует данные по правилам (арифметика, обязательные поля).
-- Показывает результат в виде карточек (Invoice / Financial / Line items).
-- Позволяет одобрить, отклонить или отредактировать.
-- Сохраняет всё в SQLite.
-- Показывает список инвойсов со статистикой.
-- Экспортирует один инвойс или все сразу в CSV.
+---
 
-**Что НЕ умеет (пока):**
+## Why Virelo?
 
-- OCR сканированных PDF. Если текста в PDF нет, приложение честно
-  сообщает: «This PDF appears to be a scanned document. OCR is required.»
-- Импорт инвойсов из email.
-- Интеграцию с бухгалтерскими системами (QuickBooks, Xero).
+Manual invoice data entry is slow, repetitive, and easy to get wrong. Most AI-powered tools solve this by sending your documents to a cloud provider. Virelo takes a different approach.
 
-## Стек
+Virelo runs the language model **locally** on your machine through [Ollama](https://ollama.com). Invoice contents stay on your computer during processing — nothing is sent to OpenAI, Anthropic, Google, or any other cloud AI service.
 
-| Слой | Технология |
-|---|---|
-| Backend | Python 3.11+, FastAPI, Uvicorn |
-| Шаблоны | Jinja2 + Bootstrap 5 |
-| Валидация | Pydantic 2 |
-| ORM | SQLModel (SQLAlchemy) |
-| БД | SQLite |
-| PDF | pypdf (чистый Python) |
-| AI | Ollama + Llama 3.2 (локально) |
-| HTTP-клиент | httpx |
+Key ideas:
 
-## Архитектура
+- **Local processing** — inference runs on your hardware.
+- **Structured output** — the model returns a strict JSON schema, validated with Pydantic.
+- **Deterministic validation** — business rules (arithmetic, required fields) are enforced in Python, not guessed by the model.
+- **Human review** — every invoice can be approved, edited, or rejected before it enters your records.
+
+---
+
+## Features
+
+- Drag & drop PDF invoice upload
+- Text extraction from text-based PDFs
+- Local Llama inference via Ollama
+- Structured JSON extraction with a fixed schema
+- Pydantic schema validation
+- Deterministic invoice validation (arithmetic checks, required fields)
+- Human review and inline editing
+- Approve / Reject workflow
+- SQLite persistence
+- CSV export (single invoice or all invoices)
+- Invoice history with basic statistics
+
+---
+
+## How it works
 
 ```
 PDF invoice
     ↓
-pypdf (извлечение текста)
+pypdf (text extraction)
     ↓
-Ollama (Llama 3.2) → структурированный JSON
+Ollama + Llama 3.2 (local inference)
     ↓
-Pydantic (валидация схемы)
+Structured JSON
     ↓
-Python-правила (арифметика, обязательные поля)
+Pydantic (schema validation)
     ↓
-SQLite (сохранение)
+Python validation rules
     ↓
-Web UI (review + Approve/Edit/Reject)
+SQLite (persistence)
+    ↓
+Web UI (review, edit, approve/reject)
     ↓
 CSV export
 ```
 
-**Ключевой принцип:** Llama только **извлекает** данные. Все финансовые
-решения (какие поля обязательны, сходится ли арифметика, что показывать
-пользователю) принимает Python. Это защищает от «AI решил, что всё ок».
+**Architectural principle:**
 
-## Требования
+> The LLM is responsible for **extracting** information. Business rules — required fields, arithmetic consistency, currency handling — are handled **deterministically** in Python.
 
-- Windows / macOS / Linux
-- Python 3.11+ (проверено на 3.14). Используется `pypdf` — чистый Python,
-  ставится на любую версию без компиляции.
-- Ollama, установленная локально
-- Модель `llama3.2` (~2 GB)
+This separation keeps the system predictable. If the model hallucinates a total, the validator catches it. If a required field is missing, the UI surfaces it. The AI never decides what is "correct" — it only proposes values that Python then checks.
 
-## Установка Ollama
+---
 
-### Windows / macOS
+## Tech stack
 
-1. Скачай с https://ollama.com/download
-2. Установи как обычную программу
-3. Открой терминал и выполни:
-   ```
-   ollama pull llama3.2
-   ```
+| Layer | Technology |
+|---|---|
+| Backend | Python, FastAPI, Uvicorn |
+| Templates | Jinja2, Bootstrap 5 |
+| Validation | Pydantic 2 |
+| ORM | SQLModel (SQLAlchemy) |
+| Database | SQLite |
+| PDF text | pypdf (pure Python) |
+| AI | Ollama + Llama 3.2 (local) |
+| HTTP client | httpx |
 
-### Linux
+---
+
+## Architecture
+
+```
+PDF invoice
+    ↓
+pypdf
+    ↓
+Ollama / Llama
+    ↓
+Structured JSON
+    ↓
+Pydantic
+    ↓
+Python validation rules
+    ↓
+SQLite
+    ↓
+Web UI
+    ↓
+CSV
+```
+
+The application is a single FastAPI process. There are no microservices, no queue, no external database. The AI provider is abstracted behind an `AIExtractor` interface, so swapping Llama for another model (or an API) only requires writing a new class and changing one line in `app/ai.py`.
+
+The same is true for PDF extraction: `PDFExtractor` is an interface, and `PypdfExtractor` is the current implementation. A future `OCRPdfExtractor` would slot in without touching the rest of the code.
+
+---
+
+## Requirements
+
+- **OS:** Windows, macOS, or Linux
+- **Python:** 3.11 or newer (tested on 3.11, 3.12, and 3.14)
+- **Ollama:** installed locally — [download here](https://ollama.com/download)
+- **Model:** `llama3.2` (~2 GB) pulled through Ollama
+
+No cloud API keys are required. No paid services are used.
+
+---
+
+## Installation
+
+### 1. Install Ollama
+
+Download from the official site: <https://ollama.com/download>
+
+Follow the installer for your OS. Once installed, Ollama runs as a background service.
+
+Verify it is running:
 
 ```bash
-curl -fsSL https://ollama.com/install.sh | sh
+ollama --version
+```
+
+### 2. Pull the model
+
+```bash
 ollama pull llama3.2
 ```
 
-### Если Ollama падает с ошибкой CUDA
+This downloads the model (~2 GB) and caches it locally.
 
-Ошибка вида:
-
-```
-CUDA error: the provided PTX was compiled with an unsupported toolchain
-```
-
-означает несовместимость драйвера NVIDIA. Запусти Ollama в режиме CPU.
-
-**Быстро (в текущем окне терминала):**
-
-```powershell
-# Windows PowerShell
-$env:OLLAMA_LLM_LIBRARY="cpu_avx2"
-ollama serve
-```
-
-Оставь это окно открытым — Ollama должна работать постоянно, пока ты
-пользуешься приложением.
-
-**Постоянно (рекомендую):**
-
-1. `Win + R` → `sysdm.cpl` → Enter.
-2. Вкладка **Дополнительно** → **Переменные среды**.
-3. В верхнем блоке («Переменные среды пользователя») → **Создать**.
-4. Имя: `OLLAMA_LLM_LIBRARY`, Значение: `cpu_avx2`.
-5. ОК → перезапусти Ollama.
-
-После этого `ollama serve` будет всегда работать в CPU-режиме без
-дополнительных команд.
-
-## Установка проекта
+Verify:
 
 ```bash
-# 1. Клонируй / скачай проект
-cd invoice-mvp
-
-# 2. Создай виртуальное окружение
-python -m venv .venv
-
-# 3. Активируй
-# Windows PowerShell:
-.venv\Scripts\Activate.ps1
-# Windows CMD:
-.venv\Scripts\activate.bat
-# macOS / Linux:
-source .venv/bin/activate
-
-# 4. Установи зависимости
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-
-# 5. Скопируй .env.example → .env
-copy .env.example .env       # Windows
-# cp .env.example .env       # macOS / Linux
+ollama list
 ```
 
-## Запуск
+You should see `llama3.2` in the output.
 
-**Терминал 1** — Ollama:
+### 3. Clone the repository
+
+```bash
+git clone https://github.com/Belannandere/Virelo.git
+cd Virelo
+```
+
+### 4. Create a virtual environment
+
+**Windows (PowerShell):**
 
 ```powershell
-$env:OLLAMA_LLM_LIBRARY="cpu_avx2"   # если есть проблемы с CUDA
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+**macOS / Linux:**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 5. Install dependencies
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+### 6. Configure environment variables
+
+Copy the example file:
+
+```bash
+copy .env.example .env       # Windows
+cp .env.example .env         # macOS / Linux
+```
+
+The defaults work out of the box. You can adjust `OLLAMA_URL`, `OLLAMA_MODEL`, upload limits, and the database URL if needed.
+
+---
+
+## Running Virelo
+
+You need **two terminals** — one for Ollama, one for the app.
+
+### Terminal 1 — Ollama
+
+```bash
 ollama serve
 ```
 
-**Терминал 2** — приложение:
+> **If Ollama crashes with a CUDA error** on Windows with an NVIDIA GPU, force CPU mode:
+>
+> ```powershell
+> $env:OLLAMA_LLM_LIBRARY="cpu_avx2"
+> ollama serve
+> ```
+>
+> To make this permanent, add `OLLAMA_LLM_LIBRARY=cpu_avx2` to your user environment variables.
 
-```powershell
-.venv\Scripts\Activate.ps1
+### Terminal 2 — Virelo
+
+```bash
 python -m uvicorn app.main:app --reload
 ```
 
-Открой http://localhost:8000.
+Open <http://localhost:8000> in your browser.
 
-## Использование
+---
 
-1. **Upload Invoice** — загрузи PDF с текстовым слоем
-   (текст должен выделяться мышкой в любой PDF-программе).
-2. Дождись результата. На CPU-режиме это 30–90 секунд для одной страницы.
-3. Проверь извлечённые поля и блок **Validation**.
-4. Нажми **Approve** (если всё верно), **Edit** (если нужно поправить),
-   или **Reject** (если это не инвойс).
-5. Скачай CSV одного инвойса кнопкой **Download CSV** или всех сразу
-   через **Download all CSV** на странице `/invoices`.
+## Usage
 
-## Структура кода
+1. Go to **Upload**.
+2. Drop a PDF invoice with a text layer (you should be able to select text in any PDF viewer).
+3. Wait for the extraction. On CPU-only inference, this can take 30–90 seconds for a single page.
+4. Review the extracted fields, line items, and validation messages.
+5. Choose one of:
+   - **Approve** — accept the data as-is.
+   - **Edit** — correct any field, then re-save. Validation runs again automatically.
+   - **Reject** — mark the document as not processed.
+6. Download the result as CSV — either for one invoice or for all invoices at once from the **Invoices** page.
 
-| Файл | Ответственность |
-|---|---|
-| `app/main.py` | HTTP-маршруты, точка входа |
-| `app/config.py` | Чтение настроек из `.env` |
-| `app/database.py` | Подключение к SQLite, init_db |
-| `app/models.py` | Таблицы БД (SQLModel) |
-| `app/schemas.py` | Pydantic-схема Invoice |
-| `app/repository.py` | CRUD-операции с БД |
-| `app/pdf.py` | Извлечение текста из PDF |
-| `app/ai.py` | AIExtractor + OllamaInvoiceExtractor |
-| `app/validation.py` | Правила проверки инвойса |
-| `app/export.py` | Генерация CSV |
-| `app/timing.py` | Замер времени этапов pipeline |
+---
 
-## Замена компонентов
+## Limitations
 
-### Другая LLM
+Virelo is an early MVP. It is honest about what it can and cannot do.
 
-`app/ai.py` содержит абстрактный класс `AIExtractor`. Чтобы подключить,
-например, Mistral или Qwen, создай класс-наследник и подмени одну строку
-внизу файла:
+**What it does NOT do:**
+
+- **OCR for scanned PDFs.** If a PDF has no text layer, Virelo will refuse to process it and tell you clearly. OCR (Tesseract, EasyOCR) is on the roadmap.
+- **Email ingestion.** Invoices must be uploaded manually. IMAP ingestion is not implemented.
+- **Accounting integrations.** No QuickBooks, Xero, or similar yet.
+- **Line-item editing in the UI.** You can edit invoice-level fields; individual line items are currently read-only after extraction.
+- **Multi-user / authentication.** The current build is single-user, running locally.
+
+**Quality caveats:**
+
+- Llama 3.2 (3B) is a small model. It handles clean, text-based invoices well, but may occasionally miss line items or produce a wrong total on dense or unusual layouts. This is exactly why deterministic validation and human review exist.
+- On CPU-only inference, processing is slow. `llama3.2:1b` is faster but less accurate on tables. A GPU dramatically improves speed.
+
+---
+
+## Roadmap
+
+Ideas being considered for future versions:
+
+- OCR support for scanned documents
+- IMAP / email ingestion
+- Full line-item editing in the review UI
+- Excel export (`.xlsx`)
+- Multi-currency validation rules
+- QuickBooks / Xero integrations
+- Optional API keys for a hosted version
+
+Nothing here is promised. It's a wishlist, not a contract.
+
+---
+
+## Project structure
+
+```
+Virelo/
+├── app/
+│   ├── main.py          # FastAPI app, routes
+│   ├── config.py        # Settings loaded from .env
+│   ├── database.py      # SQLite engine, session, init_db
+│   ├── models.py        # SQLModel tables
+│   ├── schemas.py       # Pydantic Invoice schema
+│   ├── repository.py    # Database CRUD operations
+│   ├── pdf.py           # PDFExtractor + PypdfExtractor
+│   ├── ai.py            # AIExtractor + OllamaInvoiceExtractor
+│   ├── validation.py    # Deterministic business rules
+│   ├── export.py        # CSV generation
+│   ├── timing.py        # Per-stage timing helpers
+│   ├── templates/       # Jinja2 templates
+│   └── static/          # CSS, favicon
+├── uploads/             # Uploaded PDFs (gitignored)
+├── .env.example
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## Configuration
+
+Virelo reads settings from `.env`:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama API endpoint |
+| `OLLAMA_MODEL` | `llama3.2` | Model name (e.g. `llama3.2:1b` for a smaller one) |
+| `UPLOAD_DIR` | `uploads` | Where PDFs are stored |
+| `MAX_UPLOAD_MB` | `10` | Maximum upload size |
+| `DATABASE_URL` | SQLite file in project root | Database connection string |
+
+Switching models is a one-line change — edit `OLLAMA_MODEL` and restart the app.
+
+---
+
+## Extending Virelo
+
+### Use a different LLM
+
+`app/ai.py` defines an abstract `AIExtractor`. To plug in another provider (Mistral, Qwen, or even a cloud API), subclass it and change the singleton at the bottom of the file:
 
 ```python
 ai_extractor: AIExtractor = YourNewExtractor(...)
 ```
 
-### OCR для сканов
+### Add OCR for scanned PDFs
 
-`app/pdf.py` содержит абстрактный `PDFExtractor`. Добавь класс
-`OCRPdfExtractor(PDFExtractor)` и подмени:
+`app/pdf.py` defines an abstract `PDFExtractor`. Add an `OCRPdfExtractor(PDFExtractor)` and swap the singleton:
 
 ```python
 pdf_extractor: PDFExtractor = OCRPdfExtractor()
 ```
 
-### PyMuPDF вместо pypdf (опционально)
+The rest of the app does not need to know.
 
-`pypdf` — чистый Python, работает на любой версии интерпретатора.
-Его хватает для типичных инвойсов.
+### Faster PDF parsing (PyMuPDF)
 
-Если позже понадобится более быстрый парсер или лучшая работа со
-сложной вёрсткой — можно переключиться на `pymupdf`. Он написан на C
-и требует готовой сборки под конкретную версию Python: под 3.12 и 3.11
-колёса есть, под 3.13/3.14 могут отсутствовать (тогда pip начнёт
-собирать пакет из исходников, что почти всегда падает на Windows).
+`pypdf` is a pure-Python package and works on any Python version. If you want faster parsing or better handling of complex layouts, you can switch to **PyMuPDF** — but it ships as compiled wheels, which may not exist for the newest Python releases on Windows.
 
-Переключение делается без переписывания остального кода:
+To switch:
 
 1. `python -m pip install pymupdf`
-2. В `app/pdf.py` добавь класс `PyMuPDFExtractor(PDFExtractor)` рядом
-   с `PypdfExtractor`.
-3. В самом низу файла подмени одну строку:
-   ```python
-   pdf_extractor: PDFExtractor = PyMuPDFExtractor()
-   ```
+2. Add a `PyMuPDFExtractor(PDFExtractor)` class next to `PypdfExtractor` in `app/pdf.py`.
+3. Change the singleton at the bottom of the file.
 
-## Оптимизация производительности
+No other code changes are needed.
 
-На CPU-режиме большая часть времени уходит на Llama. Уже применённые
-оптимизации в `app/ai.py`:
+---
 
-- `keep_alive: "30m"` — модель остаётся в памяти между запросами.
-- `num_predict: 800` — ограничение длины ответа.
-- `num_ctx: 4096` — уменьшенный контекст.
-- Компактный system prompt.
-- Обрезка входного текста до 8000 символов.
+## Troubleshooting
 
-Замер времени каждого этапа (`[timing] pdf_extract`, `[timing] ai_extract`,
-`[timing] db_save`) печатается в консоль сервера. Для более быстрой
-работы можно переключиться на `llama3.2:1b`:
-
-```env
-OLLAMA_MODEL=llama3.2:1b
-```
-
-## Диагностика
-
-| Проблема | Решение |
+| Problem | Fix |
 |---|---|
-| `pip: command not found` | Используй `python -m pip` |
-| `uvicorn: command not found` | Используй `python -m uvicorn` |
-| Ollama: CUDA error | Запусти с `OLLAMA_LLM_LIBRARY=cpu_avx2` |
-| AI extraction failed / HTTP 500 | Ollama не запущена или крешится. Проверь `Invoke-RestMethod http://localhost:11434/api/tags` |
-| «This PDF appears to be a scanned document» | PDF без текстового слоя. OCR пока не поддерживается. |
-| Долгий ответ (2+ минуты) | CPU-режим. Попробуй меньшую модель: `ollama pull llama3.2:1b`, затем в `.env` → `OLLAMA_MODEL=llama3.2:1b` |
-| База «застряла» на старых данных | Удали `invoices.db`, перезапусти uvicorn. |
-| Favicon не обновляется | Жёсткое обновление браузера (Ctrl + F5). |
+| `pip: command not found` | Use `python -m pip` instead |
+| `uvicorn: command not found` | Use `python -m uvicorn` instead |
+| Ollama crashes with a CUDA error | Start it with `OLLAMA_LLM_LIBRARY=cpu_avx2` |
+| `AI extraction failed` / HTTP 500 from Ollama | Ollama is not running or crashed. Test with `curl http://localhost:11434/api/tags` |
+| "This PDF appears to be a scanned document" | The PDF has no text layer. OCR is not yet supported. |
+| Processing takes 2+ minutes | You are running on CPU. Try `llama3.2:1b` via `OLLAMA_MODEL=llama3.2:1b` in `.env`. |
+| Database contains stale data | Delete `invoices.db` and restart the app. |
 
-## Что дальше
+---
 
-Идеи для развития MVP:
-
-- OCR для сканов (Tesseract / EasyOCR).
-- Извлечение из email (IMAP → PDF-вложения).
-- Редактирование line items в UI.
-- Excel-экспорт (openpyxl).
-- Мультивалютные правила валидации.
-- Интеграция с QuickBooks / Xero.
-
-## Лицензия
+## License
 
 MIT
