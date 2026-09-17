@@ -1,15 +1,16 @@
-🇷🇺 **Русский** · 🇬🇧 [English](README.md)
 # Virelo
 
 **Локальная AI-обработка инвойсов.**  
 Превращает PDF-инвойсы в структурированные и провалидированные данные с помощью локальной LLM.
 
 ```
-PDF  →  AI extraction  →  Validation  →  Review  →  CSV
+PDF  →  AI extraction  →  Validation  →  Review  →  CSV / Excel
 ```
 
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
+
+🇷🇺 **Русский** · 🇬🇧 [English](README.md)
 
 ---
 
@@ -19,7 +20,7 @@ PDF  →  AI extraction  →  Validation  →  Review  →  CSV
   <img src="docs/demo.gif" alt="Virelo demo — загрузите инвойс и получите структурированные данные" width="720">
 </p>
 
-Загрузите PDF-инвойс → AI извлекает поля → вы проверяете результат → экспорт в CSV.
+Регистрация → загрузите PDF-инвойс → AI извлекает поля → вы проверяете → approve → экспорт в CSV или Excel.
 
 > **Примечание:** это ранний MVP. Не каждый формат инвойса обрабатывается идеально. См. [Ограничения](#ограничения).
 
@@ -29,7 +30,7 @@ PDF  →  AI extraction  →  Validation  →  Review  →  CSV
 
 Ручной ввод данных из инвойсов — это медленно, повторяюще и легко ошибиться. Большинство AI-инструментов решают это, отправляя ваши документы в облако. Virelo идёт другим путём.
 
-Virelo запускает языковую модель **локально** на вашей машине через [Ollama](https://ollama.com). Содержимое инвойса остаётся на вашем компьютере во время обработки — ничего не уходит в OpenAI, Anthropic, Google и другие облачные AI-сервисы.
+Virelo запускает языковую модель **локально** через [Ollama](https://ollama.com). Содержимое инвойса остаётся на машине, где работает сервер — ничего не уходит в OpenAI, Anthropic, Google и другие облачные AI-сервисы.
 
 Ключевые идеи:
 
@@ -42,17 +43,43 @@ Virelo запускает языковую модель **локально** н�
 
 ## Возможности
 
+**AI-пайплайн**
+
 - Загрузка PDF-инвойсов через drag & drop
-- Извлечение текста из текстовых PDF
+- Извлечение текста из текстовых PDF (`pypdf`, чистый Python)
 - Локальный инференс Llama через Ollama
 - Структурированное извлечение JSON по фиксированной схеме
 - Валидация схемы через Pydantic
-- Детерминированная валидация (арифметика, обязательные поля)
-- Human review и inline-редактирование
+- Детерминированная валидация бизнес-правил (арифметика, обязательные поля)
+
+**Review и редактирование**
+
+- Human review с inline-редактированием
+- Полноценное редактирование line items (добавить / изменить / удалить)
 - Workflow Approve / Reject
+- Автоматический перезапуск валидации после каждого изменения
+
+**Аккаунты и лимиты**
+
+- Регистрация и вход по email + пароль
+- Вход через Google (OAuth 2.0 / OpenID Connect)
+- Вход через GitHub (OAuth 2.0)
+- Связка аккаунтов по verified email
+- Бесплатный план: **10 инвойсов в месяц**
+- Учёт использования с автоматическим сбросом в новый месяц
+- Страница Settings: смена email, установка/смена пароля, удаление аккаунта
+
+**Данные и экспорт**
+
 - Хранение в SQLite
+- Строгая изоляция данных по пользователю (пользователь A никогда не увидит инвойсы пользователя B)
 - Экспорт в CSV (один инвойс или все сразу)
-- История инвойсов с базовой статистикой
+- Экспорт в Excel (`.xlsx`, со вторым листом line items)
+
+**UI**
+
+- Светлая и тёмная темы
+- Адаптивная вёрстка
 
 ---
 
@@ -75,7 +102,7 @@ SQLite (хранение)
     ↓
 Web UI (review, edit, approve/reject)
     ↓
-CSV export
+CSV / Excel export
 ```
 
 **Архитектурный принцип:**
@@ -98,34 +125,11 @@ CSV export
 | PDF текст | pypdf (чистый Python) |
 | AI | Ollama + Llama 3.2 (локально) |
 | HTTP клиент | httpx |
-
----
-
-## Архитектура
-
-```
-PDF invoice
-    ↓
-pypdf
-    ↓
-Ollama / Llama
-    ↓
-Structured JSON
-    ↓
-Pydantic
-    ↓
-Python validation rules
-    ↓
-SQLite
-    ↓
-Web UI
-    ↓
-CSV
-```
-
-Приложение — это один FastAPI-процесс. Никаких микросервисов, очередей и внешних баз. AI-провайдер абстрагирован за интерфейсом `AIExtractor`, так что замена Llama на другую модель (или API) требует только нового класса и одной строки в `app/ai.py`.
-
-То же самое с извлечением PDF: `PDFExtractor` — интерфейс, `PypdfExtractor` — текущая реализация. Будущий `OCRPdfExtractor` встанет на место без изменений остального кода.
+| Пароли | bcrypt |
+| Сессии | Starlette SessionMiddleware |
+| OAuth | Authlib |
+| Excel | openpyxl |
+| Тесты | pytest |
 
 ---
 
@@ -136,7 +140,7 @@ CSV
 - **Ollama:** установлена локально — [скачать здесь](https://ollama.com/download)
 - **Модель:** `llama3.2` (~2 ГБ) через Ollama
 
-Ключи облачных API не нужны. Платные сервисы не используются.
+Ключи облачных AI API не нужны. Платные сервисы не используются.
 
 ---
 
@@ -144,9 +148,7 @@ CSV
 
 ### 1. Установите Ollama
 
-Скачайте с официального сайта: <https://ollama.com/download>
-
-Следуйте установщику для вашей ОС. После установки Ollama работает как фоновая служба.
+Скачайте с <https://ollama.com/download> и следуйте установщику для вашей ОС.
 
 Проверьте:
 
@@ -159,8 +161,6 @@ ollama --version
 ```bash
 ollama pull llama3.2
 ```
-
-Это загрузит модель (~2 ГБ) и закэширует её локально.
 
 Проверьте:
 
@@ -202,14 +202,22 @@ python -m pip install -r requirements.txt
 
 ### 6. Настройте переменные окружения
 
-Скопируйте пример:
-
 ```bash
 copy .env.example .env       # Windows
 cp .env.example .env         # macOS / Linux
 ```
 
-Значения по умолчанию работают из коробки. Можно изменить `OLLAMA_URL`, `OLLAMA_MODEL`, лимиты загрузки и URL базы данных.
+Сгенерируйте `SECRET_KEY`:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Вставьте результат в `SECRET_KEY=` в `.env`. Остальные значения по умолчанию работают из коробки.
+
+### 7. (Опционально) Настройте OAuth
+
+Если хотите «Sign in with Google» / «Sign in with GitHub» — следуйте инструкциям в конце README. Без этой настройки OAuth-кнопки будут просто перенаправлять на `?error=oauth_unavailable`, но вход по email и паролю работает.
 
 ---
 
@@ -244,15 +252,28 @@ python -m uvicorn app.main:app --reload
 
 ## Использование
 
-1. Откройте **Upload**.
-2. Перетащите PDF-инвойс с текстовым слоем (текст должен выделяться мышкой в любой PDF-программе).
-3. Дождитесь извлечения. На CPU-инференсе это может занять 30–90 секунд на одну страницу.
-4. Проверьте извлечённые поля, строки и сообщения валидации.
-5. Выберите одно из действий:
+1. Зарегистрируйтесь на `/register` — либо войдите через Google / GitHub.
+2. Откройте **Upload**.
+3. Перетащите PDF-инвойс с текстовым слоем (текст должен выделяться мышкой в любой PDF-программе).
+4. Дождитесь извлечения. На CPU-инференсе это может занять 30–90 секунд на одну страницу.
+5. Проверьте извлечённые поля, строки и сообщения валидации.
+6. Выберите одно из действий:
    - **Approve** — принять данные как есть.
-   - **Edit** — исправить любое поле и сохранить. Валидация запустится заново.
+   - **Edit** — исправить любое поле или строку и сохранить. Валидация запустится заново.
    - **Reject** — пометить документ как необработанный.
-6. Скачайте результат как CSV — для одного инвойса или для всех сразу со страницы **Invoices**.
+7. Скачайте результат как **CSV** или **Excel** — для одного инвойса или для всех сразу со страницы **Invoices**.
+
+Бесплатный план: **10 инвойсов в месяц**.
+
+---
+
+## Запуск тестов
+
+```bash
+pytest -v
+```
+
+Тесты покрывают аутентификацию, изоляцию данных пользователей (пользователь A не может получить доступ к документам пользователя B ни через какой URL или метод), месячные лимиты, редактирование строк и операции в Settings.
 
 ---
 
@@ -265,8 +286,7 @@ Virelo — это ранний MVP. Он честен относительно �
 - **OCR сканированных PDF.** Если в PDF нет текстового слоя, Virelo откажется его обрабатывать и честно об этом скажет. OCR (Tesseract, EasyOCR) в roadmap.
 - **Импорт из email.** Инвойсы загружаются вручную. IMAP не реализован.
 - **Интеграции с бухгалтерией.** QuickBooks, Xero и аналоги пока не подключены.
-- **Редактирование line items в UI.** Можно редактировать поля уровня инвойса; отдельные строки пока read-only после извлечения.
-- **Многопользовательность / аутентификация.** Текущая сборка — однопользовательская, локальная.
+- **Платные тарифы / биллинг.** Реально работает только бесплатный план. Тариф Pro на странице Pricing — заглушка.
 
 **О качестве:**
 
@@ -281,11 +301,11 @@ Virelo — это ранний MVP. Он честен относительно �
 
 - OCR для сканов
 - IMAP / импорт из email
-- Полное редактирование line items в UI
-- Excel-экспорт (`.xlsx`)
-- Мультивалютные правила валидации
+- Платные тарифы через Stripe
 - Интеграции QuickBooks / Xero
-- Опциональные API-ключи для хостинговой версии
+- Мультивалютные правила валидации
+- Экспорт в форматы для бухгалтерии (SAF-T, UBL)
+- Скрипт установки «в одну команду» для self-hosted
 
 Ничего из этого не обещано. Это список желаний, не контракт.
 
@@ -296,21 +316,25 @@ Virelo — это ранний MVP. Он честен относительно �
 ```
 Virelo/
 ├── app/
-│   ├── main.py          # FastAPI-приложение, маршруты
-│   ├── config.py        # Настройки из .env
-│   ├── database.py      # SQLite engine, session, init_db
-│   ├── models.py        # Таблицы SQLModel
-│   ├── schemas.py       # Pydantic-схема Invoice
-│   ├── repository.py    # CRUD-операции с БД
-│   ├── pdf.py           # PDFExtractor + PypdfExtractor
-│   ├── ai.py            # AIExtractor + OllamaInvoiceExtractor
-│   ├── validation.py    # Детерминированные бизнес-правила
-│   ├── export.py        # Генерация CSV
-│   ├── timing.py        # Замер времени этапов
-│   ├── templates/       # Jinja2-шаблоны
-│   └── static/          # CSS, favicon
-├── uploads/             # Загруженные PDF (gitignored)
-├── .env.example
+│   ├── main.py             # FastAPI-приложение, маршруты
+│   ├── config.py           # Настройки из .env
+│   ├── database.py         # SQLite engine, миграции, session
+│   ├── models.py           # Таблицы SQLModel (User, Document, ...)
+│   ├── schemas.py          # Pydantic-схема Invoice
+│   ├── repository.py       # CRUD-операции с БД
+│   ├── auth.py             # Хеширование пароля, сессии, current user
+│   ├── limiter.py          # Месячный лимит инвойсов
+│   ├── oauth.py            # OAuth-провайдеры через Authlib
+│   ├── pdf.py              # PDFExtractor + PypdfExtractor
+│   ├── ai.py               # AIExtractor + OllamaInvoiceExtractor
+│   ├── validation.py       # Детерминированные бизнес-правила
+│   ├── export.py           # Генерация CSV
+│   ├── export_excel.py     # Генерация XLSX
+│   ├── timing.py           # Замер времени этапов
+│   ├── templates/          # Jinja2-шаблоны
+│   └── static/             # CSS, favicon
+├── tests/                  # pytest-набор
+├── pytest.ini
 ├── requirements.txt
 └── README.md
 ```
@@ -323,13 +347,17 @@ Virelo читает настройки из `.env`:
 
 | Переменная | По умолчанию | Назначение |
 |---|---|---|
+| `SECRET_KEY` | — | Подпись session-cookie. **Смените в продакшене.** |
+| `SESSION_MAX_AGE` | `1209600` | Время жизни сессии в секундах (14 дней) |
 | `OLLAMA_URL` | `http://localhost:11434` | Адрес Ollama API |
-| `OLLAMA_MODEL` | `llama3.2` | Имя модели (например `llama3.2:1b` для меньшей) |
+| `OLLAMA_MODEL` | `llama3.2` | Имя модели (например `llama3.2:1b`) |
 | `UPLOAD_DIR` | `uploads` | Папка для PDF |
 | `MAX_UPLOAD_MB` | `10` | Максимальный размер загрузки |
 | `DATABASE_URL` | SQLite-файл в корне проекта | Строка подключения к БД |
-
-Смена модели — это одна строка: измените `OLLAMA_MODEL` и перезапустите приложение.
+| `GOOGLE_CLIENT_ID` | — | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | — | Google OAuth client secret |
+| `GITHUB_CLIENT_ID` | — | GitHub OAuth client ID |
+| `GITHUB_CLIENT_SECRET` | — | GitHub OAuth client secret |
 
 ---
 
@@ -351,19 +379,51 @@ ai_extractor: AIExtractor = YourNewExtractor(...)
 pdf_extractor: PDFExtractor = OCRPdfExtractor()
 ```
 
-Остальному приложению знать об этом не нужно.
-
 ### Более быстрый парсер (PyMuPDF)
 
 `pypdf` — чистый Python и работает на любой версии. Если нужна скорость или лучшее качество на сложной вёрстке, можно переключиться на **PyMuPDF** — но он поставляется как скомпилированные wheels, которые могут отсутствовать для новых версий Python на Windows.
-
-Порядок переключения:
 
 1. `python -m pip install pymupdf`
 2. Добавьте класс `PyMuPDFExtractor(PDFExtractor)` рядом с `PypdfExtractor` в `app/pdf.py`.
 3. Поменяйте singleton внизу файла.
 
-Больше ничего в коде менять не нужно.
+---
+
+## Настройка Google OAuth
+
+1. Откройте [Google Cloud Console](https://console.cloud.google.com/) → создайте проект (например, `Virelo`).
+2. **APIs & Services** → **OAuth consent screen** (сейчас называется *Google Auth Platform*):
+   - User Type: **External**.
+   - Впишите название приложения и support email.
+   - Добавьте свой Google-аккаунт в **Test users**, пока приложение не опубликовано.
+3. **APIs & Services → Credentials → Create OAuth client ID**:
+   - Application type: **Web application**.
+   - Name: `Virelo Local`.
+   - Authorized JavaScript origins: `http://localhost:8000`
+   - Authorized redirect URIs: `http://localhost:8000/auth/google/callback`
+4. Скопируйте **Client ID** и **Client secret** в `.env`:
+   ```
+   GOOGLE_CLIENT_ID=...
+   GOOGLE_CLIENT_SECRET=...
+   ```
+
+Для продакшена добавьте продовый домен в оба списка.
+
+## Настройка GitHub OAuth
+
+1. Откройте [GitHub Developer Settings](https://github.com/settings/developers) → **OAuth Apps** → **New OAuth App**.
+2. Заполните:
+   - Application name: `Virelo`
+   - Homepage URL: `http://localhost:8000`
+   - Authorization callback URL: `http://localhost:8000/auth/github/callback`
+3. Скопируйте **Client ID** и сгенерируйте **Client secret**.
+4. Добавьте в `.env`:
+   ```
+   GITHUB_CLIENT_ID=...
+   GITHUB_CLIENT_SECRET=...
+   ```
+
+GitHub разрешает только один callback URL на приложение. Для продакшена создайте **второе** OAuth App, нацеленное на продовый домен.
 
 ---
 
@@ -377,7 +437,10 @@ pdf_extractor: PDFExtractor = OCRPdfExtractor()
 | `AI extraction failed` / HTTP 500 от Ollama | Ollama не запущена или упала. Проверьте `curl http://localhost:11434/api/tags` |
 | «This PDF appears to be a scanned document» | В PDF нет текстового слоя. OCR пока не поддерживается. |
 | Обработка занимает 2+ минуты | Вы работаете на CPU. Попробуйте `llama3.2:1b` через `OLLAMA_MODEL=llama3.2:1b` в `.env`. |
+| `redirect_uri_mismatch` от Google / GitHub | Callback URL в настройках OAuth-приложения не совпадает с тем, что отправляет приложение. Проверьте схему, хост, порт и путь. |
+| `Access blocked: Virelo has not completed verification` | Ваш Google-аккаунт не добавлен в **Test users** на экране OAuth consent. |
 | База забита старыми данными | Удалите `invoices.db` и перезапустите приложение. |
+| Сессии пропадают после перезапуска сервера | Изменился `SECRET_KEY`. Установите его один раз в `.env` и не крутите в разработке. |
 
 ---
 
