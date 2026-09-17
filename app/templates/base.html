@@ -7,10 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
-        <script>
-    /* Apply saved theme before first paint to avoid a flash.
-       We set BOTH data-theme (our custom variables) and data-bs-theme
-       (Bootstrap 5.3's own dark mode) so all components stay in sync. */
+    <script>
     (function () {
         function apply(theme) {
             var root = document.documentElement;
@@ -27,7 +24,7 @@
             } else {
                 apply('light');
             }
-        } catch (e) { /* localStorage may be blocked; ignore */ }
+        } catch (e) {}
     })();
     </script>
 </head>
@@ -55,19 +52,24 @@
                 <span class="app-brand-name">Virelo</span>
             </a>
 
-            {# --- CENTER: primary navigation --- #}
+            {# --- CENTER: primary navigation (desktop only) --- #}
             <div class="app-nav-center">
                 {% if current_user %}
                     <a class="app-nav-link {% if request.url.path.startswith('/invoices') %}is-active{% endif %}"
                        href="/invoices">Invoices</a>
                     <a class="app-nav-link {% if request.url.path.startswith('/upload') %}is-active{% endif %}"
                        href="/upload">Upload</a>
+                    <a class="app-nav-link {% if request.url.path == '/pricing' %}is-active{% endif %}"
+                       href="/pricing">Pricing</a>
+                {% else %}
+                    <a class="app-nav-link" href="/#features">Features</a>
+                    <a class="app-nav-link" href="/#how-it-works">How it works</a>
+                    <a class="app-nav-link {% if request.url.path == '/pricing' %}is-active{% endif %}"
+                       href="/pricing">Pricing</a>
                 {% endif %}
-                <a class="app-nav-link {% if request.url.path == '/pricing' %}is-active{% endif %}"
-                   href="/pricing">Pricing</a>
             </div>
 
-            {# --- RIGHT: auth actions --- #}
+            {# --- RIGHT: actions / account controls --- #}
             <div class="app-nav-right">
                 {% if current_user %}
                     {% set used = current_user.invoices_used or 0 %}
@@ -104,11 +106,10 @@
                             <a class="account-menu-item" role="menuitem" href="/account">Account</a>
                             <a class="account-menu-item" role="menuitem" href="/settings">Settings</a>
                             <button type="button"
-                                    class="account-menu-item theme-toggle"
-                                    id="theme-toggle"
+                                    class="account-menu-item theme-toggle theme-toggle-btn"
                                     role="menuitem">
                                 <span>Theme</span>
-                                <span class="theme-toggle-value" id="theme-toggle-value">Light</span>
+                                <span class="theme-toggle-value">Light</span>
                             </button>
                             <div class="account-menu-sep"></div>
                             <a class="account-menu-item account-menu-item-danger" role="menuitem" href="/logout">Logout</a>
@@ -117,6 +118,49 @@
                 {% else %}
                     <a class="app-nav-link" href="/login">Log in</a>
                     <a class="btn btn-primary btn-sm" href="/register">Get started</a>
+                {% endif %}
+            </div>
+
+            {# --- Mobile toggle (only visible < 768px) --- #}
+            <button type="button"
+                    class="app-nav-toggle"
+                    id="app-nav-toggle"
+                    aria-label="Open menu"
+                    aria-expanded="false"
+                    aria-controls="app-nav-mobile">
+                <svg class="nav-toggle-open" width="20" height="20" viewBox="0 0 20 20" fill="none"
+                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                    <path d="M3 6h14M3 10h14M3 14h14"/>
+                </svg>
+                <svg class="nav-toggle-close" width="20" height="20" viewBox="0 0 20 20" fill="none"
+                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                    <path d="M5 5l10 10M15 5L5 15"/>
+                </svg>
+            </button>
+        </div>
+
+        {# --- Mobile dropdown (hidden by default) --- #}
+        <div class="app-nav-mobile" id="app-nav-mobile" hidden>
+            <div class="container app-nav-mobile-inner">
+                {% if current_user %}
+                    <a class="app-nav-mobile-link" href="/invoices">Invoices</a>
+                    <a class="app-nav-mobile-link" href="/upload">Upload</a>
+                    <a class="app-nav-mobile-link" href="/pricing">Pricing</a>
+                    <div class="app-nav-mobile-sep"></div>
+                    <a class="app-nav-mobile-link" href="/account">Account</a>
+                    <a class="app-nav-mobile-link" href="/settings">Settings</a>
+                    <button type="button" class="app-nav-mobile-link theme-toggle-btn">
+                        <span>Theme</span>
+                        <span class="theme-toggle-value">Light</span>
+                    </button>
+                    <a class="app-nav-mobile-link app-nav-mobile-link-danger" href="/logout">Logout</a>
+                {% else %}
+                    <a class="app-nav-mobile-link" href="/#features">Features</a>
+                    <a class="app-nav-mobile-link" href="/#how-it-works">How it works</a>
+                    <a class="app-nav-mobile-link" href="/pricing">Pricing</a>
+                    <div class="app-nav-mobile-sep"></div>
+                    <a class="app-nav-mobile-link" href="/login">Log in</a>
+                    <a class="btn btn-primary btn-block" href="/register">Get started</a>
                 {% endif %}
             </div>
         </div>
@@ -128,65 +172,85 @@
 
     <script>
     (function () {
+        // ---- Account dropdown (desktop) ----
         var menu = document.getElementById('account-menu');
-        if (!menu) return;
+        if (menu) {
+            var trigger = document.getElementById('account-menu-trigger');
+            var dropdown = document.getElementById('account-menu-dropdown');
 
-        var trigger = document.getElementById('account-menu-trigger');
-        var dropdown = document.getElementById('account-menu-dropdown');
+            var open = function () {
+                dropdown.hidden = false;
+                trigger.setAttribute('aria-expanded', 'true');
+                menu.classList.add('is-open');
+            };
+            var close = function () {
+                dropdown.hidden = true;
+                trigger.setAttribute('aria-expanded', 'false');
+                menu.classList.remove('is-open');
+            };
 
-        function open() {
-            dropdown.hidden = false;
-            trigger.setAttribute('aria-expanded', 'true');
-            menu.classList.add('is-open');
+            trigger.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (dropdown.hidden) open(); else close();
+            });
+
+            document.addEventListener('click', function (e) {
+                if (!menu.contains(e.target)) close();
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') close();
+            });
         }
-        function close() {
-            dropdown.hidden = true;
-            trigger.setAttribute('aria-expanded', 'false');
-            menu.classList.remove('is-open');
+
+        // ---- Mobile menu ----
+        var navToggle = document.getElementById('app-nav-toggle');
+        var navMobile = document.getElementById('app-nav-mobile');
+        if (navToggle && navMobile) {
+            var closeMobile = function () {
+                navMobile.hidden = true;
+                navToggle.setAttribute('aria-expanded', 'false');
+                navToggle.classList.remove('is-open');
+            };
+
+            navToggle.addEventListener('click', function () {
+                var isOpen = !navMobile.hidden;
+                navMobile.hidden = isOpen;
+                navToggle.setAttribute('aria-expanded', String(!isOpen));
+                navToggle.classList.toggle('is-open', !isOpen);
+            });
+
+            // Close when a link inside is clicked (except theme toggle)
+            navMobile.querySelectorAll('a').forEach(function (link) {
+                link.addEventListener('click', function () { closeMobile(); });
+            });
         }
 
-        trigger.addEventListener('click', function (e) {
-            e.stopPropagation();
-            if (dropdown.hidden) open(); else close();
-        });
-
-        document.addEventListener('click', function (e) {
-            if (!menu.contains(e.target)) close();
-        });
-
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') close();
-        });
-    })();
-
-        // Theme toggle
-    (function () {
-        var btn = document.getElementById('theme-toggle');
-        var label = document.getElementById('theme-toggle-value');
-        if (!btn) return;
-
+        // ---- Theme toggles (works everywhere by class) ----
         var root = document.documentElement;
 
-        function currentTheme() {
+        var currentTheme = function () {
             return root.getAttribute('data-theme') || 'light';
-        }
-        function apply(theme) {
+        };
+        var applyTheme = function (theme) {
             root.setAttribute('data-theme', theme);
             root.setAttribute('data-bs-theme', theme);
-        }
-        function refresh() {
-            if (label) {
-                label.textContent = currentTheme() === 'dark' ? 'Dark' : 'Light';
-            }
-        }
-        refresh();
+        };
+        var refreshThemeLabels = function () {
+            document.querySelectorAll('.theme-toggle-value').forEach(function (el) {
+                el.textContent = currentTheme() === 'dark' ? 'Dark' : 'Light';
+            });
+        };
+        refreshThemeLabels();
 
-        btn.addEventListener('click', function (e) {
-            e.preventDefault();
-            var next = currentTheme() === 'dark' ? 'light' : 'dark';
-            apply(next);
-            try { localStorage.setItem('virelo-theme', next); } catch (_) {}
-            refresh();
+        document.querySelectorAll('.theme-toggle-btn').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                var next = currentTheme() === 'dark' ? 'light' : 'dark';
+                applyTheme(next);
+                try { localStorage.setItem('virelo-theme', next); } catch (_) {}
+                refreshThemeLabels();
+            });
         });
     })();
     </script>
