@@ -61,6 +61,77 @@
         transform 0.15s ease;
 }
 
+/* Dark theme — overrides the same variables. Applied via data-theme="dark"
+   on the <html> element. All components already use var(--...) so they
+   repaint automatically. */
+[data-theme="dark"] {
+    /* Surfaces */
+    --bg: #0b0f19;
+    --surface: #121826;
+    --surface-muted: #1a2130;
+    --surface-hover: #1a2130;
+
+    /* Borders */
+    --border: #1f2937;
+    --border-strong: #334155;
+
+    /* Text */
+    --text: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-tertiary: #94a3b8;
+
+    /* Accent */
+    --primary: #6366f1;
+    --primary-hover: #818cf8;
+    --primary-soft: rgba(99, 102, 241, 0.14);
+    --primary-ring: rgba(99, 102, 241, 0.28);
+
+    /* Status */
+    --success-soft: rgba(22, 163, 74, 0.14);
+    --success-border: rgba(22, 163, 74, 0.35);
+    --success-text: #86efac;
+
+    --warning-soft: rgba(217, 119, 6, 0.14);
+    --warning-border: rgba(217, 119, 6, 0.35);
+    --warning-text: #fcd34d;
+
+    --danger-soft: rgba(220, 38, 38, 0.14);
+    --danger-border: rgba(220, 38, 38, 0.35);
+    --danger-text: #fca5a5;
+
+    --info-soft: rgba(59, 130, 246, 0.14);
+    --info-border: rgba(59, 130, 246, 0.35);
+    --info-text: #93c5fd;
+
+    /* Shadows — darker and softer on dark surfaces */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+
+    /* Code / extracted text helper colors */
+    --code-bg: #1f2937;
+    --code-text: #e2e8f0;
+
+        /* Bootstrap variable overrides so its components repaint too */
+    --bs-body-bg: var(--bg);
+    --bs-body-color: var(--text);
+    --bs-body-color-rgb: 248, 250, 252;
+    --bs-border-color: var(--border);
+    --bs-secondary-color: var(--text-secondary);
+    --bs-secondary-color-rgb: 203, 213, 225;
+    --bs-emphasis-color: var(--text);
+    --bs-heading-color: var(--text);
+    --bs-link-color: var(--primary);
+    --bs-link-hover-color: var(--primary-hover);
+    --bs-link-color-rgb: 99, 102, 241;
+    --bs-link-hover-color-rgb: 129, 140, 248;
+}
+
+/* Defaults for the same helper variables in light mode */
+:root {
+    --code-bg: var(--surface-muted);
+    --code-text: #374151;
+}
+
 /* ==========================================================
    2. BASE
    ========================================================== */
@@ -97,9 +168,10 @@ hr {
     margin: 20px 0;
 }
 
+
 code {
-    background: var(--surface-muted);
-    color: #374151;
+    background: var(--code-bg);
+    color: var(--code-text);
     padding: 2px 7px;
     border-radius: var(--radius-sm);
     font-size: 0.82em;
@@ -1211,8 +1283,8 @@ h3 { font-size: 1rem; }
    19. EXTRACTED TEXT
    ========================================================== */
 .extracted-text {
-    background: #f9fafb;
-    color: #374151;
+    background: var(--code-bg);
+    color: var(--code-text);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 16px 18px;
@@ -1482,7 +1554,7 @@ h3 { font-size: 1rem; }
 }
 
 .demo-pdf-frame {
-    background: #ffffff;
+    background: var(--surface);
     border-radius: var(--radius);
     padding: 18px 18px 22px;
     box-shadow: var(--shadow-sm);
@@ -1516,13 +1588,13 @@ h3 { font-size: 1rem; }
 .demo-pdf-line {
     height: 8px;
     border-radius: 4px;
-    background: #e9ebef;
+    background: var(--surface-muted);
 }
 
 .demo-pdf-line.title {
     height: 10px;
     width: 55%;
-    background: #c7ccd6;
+    background: var(--border-strong);
 }
 
 .demo-pdf-line.short  { width: 40%; }
@@ -1923,4 +1995,90 @@ h3 { font-size: 1rem; }
     .auth-title {
         font-size: 1.35rem;
     }
+}
+
+/* ==========================================================
+   26. LINE ITEMS EDITING
+   ========================================================== */
+.line-items-table {
+    margin-bottom: 0;
+}
+
+.line-items-table th {
+    padding: 8px 10px;
+}
+
+.line-items-table td {
+    padding: 6px 10px;
+    vertical-align: middle;
+}
+
+.line-items-table .form-control-sm {
+    height: 36px;
+    padding: 6px 10px;
+    font-size: 0.88rem;
+    border-radius: 8px;
+}
+
+.line-item-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text-tertiary);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: var(--transition);
+}
+.line-item-remove:hover {
+    color: var(--danger);
+    border-color: var(--danger-border);
+    background: var(--danger-soft);
+}
+.line-item-remove:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--primary-ring);
+}
+
+/* ==========================================================
+   27. THEME TOGGLE
+   ========================================================== */
+.theme-toggle {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+}
+
+.theme-toggle-value {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 999px;
+    line-height: 1.5;
+    min-width: 54px;
+    justify-content: center;
+}
+
+.theme-toggle:hover .theme-toggle-value {
+    color: var(--text);
+    border-color: var(--border-strong);
 }
