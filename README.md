@@ -1,4 +1,4 @@
-🌐 **Language:** **English** · [Русский](README.ru.md)
+🇷🇺 [Русский](README.ru.md) · 🇬🇧 **English**
 # Virelo
 
 **Local AI invoice processing.**  
@@ -10,8 +10,6 @@ PDF  →  AI extraction  →  Validation  →  Review  →  CSV
 
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-
-🌐 **Language:** **English** · [Русский](README.ru.md)
 
 ---
 
