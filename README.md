@@ -3,17 +3,26 @@
 Локальный MVP для автоматического извлечения данных из PDF-инвойсов
 с помощью локальной LLM (Ollama + Llama 3.2).
 
+## Demo
+
+<p align="center">
+  <img src="docs/demo.gif" alt="Virelo demo — upload an invoice, get structured data" width="720">
+</p>
+
+Upload an invoice PDF → AI extracts the fields → validate → export to CSV.
+
 ## Что умеет
 
-- Принимает PDF-инвойс через веб-форму.
-- Извлекает текст (PyPDF).
+- Принимает PDF-инвойс через веб-форму (drag & drop).
+- Извлекает текст (pypdf — чистый Python).
 - Передаёт текст в локальную Llama через Ollama.
 - Получает структурированный JSON с полями инвойса.
 - Валидирует данные по правилам (арифметика, обязательные поля).
-- Показывает результат пользователю.
+- Показывает результат в виде карточек (Invoice / Financial / Line items).
 - Позволяет одобрить, отклонить или отредактировать.
 - Сохраняет всё в SQLite.
-- Экспортирует в CSV.
+- Показывает список инвойсов со статистикой.
+- Экспортирует один инвойс или все сразу в CSV.
 
 **Что НЕ умеет (пока):**
 
@@ -26,7 +35,7 @@
 
 | Слой | Технология |
 |---|---|
-| Backend | Python 3.12+, FastAPI, Uvicorn |
+| Backend | Python 3.11+, FastAPI, Uvicorn |
 | Шаблоны | Jinja2 + Bootstrap 5 |
 | Валидация | Pydantic 2 |
 | ORM | SQLModel (SQLAlchemy) |
@@ -93,7 +102,9 @@ ollama pull llama3.2
 CUDA error: the provided PTX was compiled with an unsupported toolchain
 ```
 
-означает несовместимость драйвера NVIDIA. Запусти Ollama в режиме CPU:
+означает несовместимость драйвера NVIDIA. Запусти Ollama в режиме CPU.
+
+**Быстро (в текущем окне терминала):**
 
 ```powershell
 # Windows PowerShell
@@ -103,6 +114,17 @@ ollama serve
 
 Оставь это окно открытым — Ollama должна работать постоянно, пока ты
 пользуешься приложением.
+
+**Постоянно (рекомендую):**
+
+1. `Win + R` → `sysdm.cpl` → Enter.
+2. Вкладка **Дополнительно** → **Переменные среды**.
+3. В верхнем блоке («Переменные среды пользователя») → **Создать**.
+4. Имя: `OLLAMA_LLM_LIBRARY`, Значение: `cpu_avx2`.
+5. ОК → перезапусти Ollama.
+
+После этого `ollama serve` будет всегда работать в CPU-режиме без
+дополнительных команд.
 
 ## Установка проекта
 
@@ -173,6 +195,7 @@ python -m uvicorn app.main:app --reload
 | `app/ai.py` | AIExtractor + OllamaInvoiceExtractor |
 | `app/validation.py` | Правила проверки инвойса |
 | `app/export.py` | Генерация CSV |
+| `app/timing.py` | Замер времени этапов pipeline |
 
 ## Замена компонентов
 
@@ -214,6 +237,26 @@ pdf_extractor: PDFExtractor = OCRPdfExtractor()
 3. В самом низу файла подмени одну строку:
    ```python
    pdf_extractor: PDFExtractor = PyMuPDFExtractor()
+   ```
+
+## Оптимизация производительности
+
+На CPU-режиме большая часть времени уходит на Llama. Уже применённые
+оптимизации в `app/ai.py`:
+
+- `keep_alive: "30m"` — модель остаётся в памяти между запросами.
+- `num_predict: 800` — ограничение длины ответа.
+- `num_ctx: 4096` — уменьшенный контекст.
+- Компактный system prompt.
+- Обрезка входного текста до 8000 символов.
+
+Замер времени каждого этапа (`[timing] pdf_extract`, `[timing] ai_extract`,
+`[timing] db_save`) печатается в консоль сервера. Для более быстрой
+работы можно переключиться на `llama3.2:1b`:
+
+```env
+OLLAMA_MODEL=llama3.2:1b
+```
 
 ## Диагностика
 
@@ -226,6 +269,7 @@ pdf_extractor: PDFExtractor = OCRPdfExtractor()
 | «This PDF appears to be a scanned document» | PDF без текстового слоя. OCR пока не поддерживается. |
 | Долгий ответ (2+ минуты) | CPU-режим. Попробуй меньшую модель: `ollama pull llama3.2:1b`, затем в `.env` → `OLLAMA_MODEL=llama3.2:1b` |
 | База «застряла» на старых данных | Удали `invoices.db`, перезапусти uvicorn. |
+| Favicon не обновляется | Жёсткое обновление браузера (Ctrl + F5). |
 
 ## Что дальше
 
