@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Account</h1>
+        <p class="page-subtitle">Your plan and monthly usage.</p>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card p-4">
+            <h2 class="section-title">Profile</h2>
+            <div class="field">
+                <span class="label">Email</span>
+                <span class="value">{{ current_user.email }}</span>
+            </div>
+            <div class="field">
+                <span class="label">Plan</span>
+                <span class="value">
+                    <span class="badge bg-primary">{{ current_user.plan|capitalize }}</span>
+                </span>
+            </div>
+            <div class="field">
+                <span class="label">Member since</span>
+                <span class="value">{{ current_user.created_at.strftime("%Y-%m-%d") }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card p-4">
+            <h2 class="section-title">Your monthly usage</h2>
+
+            <div class="stat-value mb-2">
+                {{ usage_used }} / {{ usage_limit }}
+                <span class="text-muted" style="font-size:1rem;font-weight:400;">invoices</span>
+            </div>
+
+            <div class="usage-bar">
+                <div class="usage-bar-fill" style="width: 70%;"></div>
+            </div>
+
+            <p class="text-muted mt-3 mb-0" style="font-size:.88rem;">
+                {% if usage_remaining > 0 %}
+                    {{ usage_remaining }} invoice{% if usage_remaining != 1 %}s{% endif %} remaining this month.
+                {% else %}
+                    You've reached your monthly limit.
+                {% endif %}
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a class="btn btn-outline-secondary" href="/pricing">View plans</a>
+</div>
+{% endblock %}

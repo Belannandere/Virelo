@@ -4,21 +4,39 @@ from typing import Optional
 from sqlmodel import Field, Relationship, SQLModel
 
 
+class User(SQLModel, table=True):
+    __tablename__ = "users"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(unique=True, index=True)
+    password_hash: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    plan: str = "free"
+    invoices_used: int = 0
+    invoices_limit: int = 10
+    usage_period_start: datetime = Field(default_factory=datetime.utcnow)
+
+    documents: list["Document"] = Relationship(back_populates="user")
+
+
 class Document(SQLModel, table=True):
     __tablename__ = "documents"
 
     id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[int] = Field(
+        default=None, foreign_key="users.id", index=True
+    )
     filename: str
     filepath: str
-    status: str = "uploaded"          # uploaded | extracted | approved | rejected
+    status: str = "uploaded"
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+    user: Optional[User] = Relationship(back_populates="documents")
     invoice: Optional["InvoiceRecord"] = Relationship(back_populates="document")
 
 
 class InvoiceRecord(SQLModel, table=True):
-    """Таблица с полями инвойса. Название InvoiceRecord, чтобы не путать с Pydantic-схемой Invoice."""
-
     __tablename__ = "invoices"
 
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -60,8 +78,8 @@ class ValidationRecord(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     invoice_id: int = Field(foreign_key="invoices.id", unique=True)
 
-    status: str                         # passed | review
-    errors: str = ""                    
-    warnings: str = ""                  
+    status: str
+    errors: str = ""
+    warnings: str = ""
 
     invoice: Optional[InvoiceRecord] = Relationship(back_populates="validation")

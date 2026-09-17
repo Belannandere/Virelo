@@ -6,12 +6,24 @@
         <h1>Upload invoice</h1>
         <p class="page-subtitle">Upload a PDF and let AI extract the invoice details.</p>
     </div>
+    <div class="page-actions">
+        <span class="text-muted small">{{ remaining }} of {{ current_user.invoices_limit }} invoices remaining this month</span>
+    </div>
 </div>
 
 {% if error %}
     <div class="alert alert-danger">{{ error }}</div>
 {% endif %}
 
+{% if limit_reached %}
+    <div class="alert alert-warning">
+        <strong>Monthly limit reached.</strong><br>
+        You've used {{ current_user.invoices_used }} of {{ current_user.invoices_limit }} invoices this month.
+        <div class="mt-2">
+            <a class="btn btn-primary btn-sm" href="/pricing">Upgrade</a>
+        </div>
+    </div>
+{% else %}
 <form action="/upload" method="post" enctype="multipart/form-data" class="upload-form" id="upload-form">
     <label for="file" class="dropzone dropzone-interactive" id="dropzone">
         <input type="file" id="file" name="file" accept="application/pdf,.pdf" required hidden>
@@ -79,4 +91,5 @@
     });
 })();
 </script>
+{% endif %}
 {% endblock %}

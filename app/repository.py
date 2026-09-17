@@ -8,16 +8,19 @@ from app.schemas import Invoice
 from app.validation import ValidationResult
 
 
+# ---------- documents ----------
+
 def save_extraction(
     session: Session,
     *,
+    user_id: int,
     filename: str,
     filepath: Path,
     invoice: Invoice | None,
     validation: ValidationResult | None,
 ) -> Document:
-    """Сохраняет документ, инвойс, строки и результат валидации в БД."""
     document = Document(
+        user_id=user_id,
         filename=filename,
         filepath=str(filepath),
         status="extracted" if invoice else "uploaded",
@@ -70,13 +73,26 @@ def save_extraction(
     return document
 
 
-def list_documents(session: Session) -> list[Document]:
-    statement = select(Document).order_by(Document.created_at.desc())
+def list_documents(session: Session, user_id: int) -> list[Document]:
+    statement = (
+        select(Document)
+        .where(Document.user_id == user_id)
+        .order_by(Document.created_at.desc())
+    )
     return list(session.exec(statement).all())
 
 
-def get_document(session: Session, document_id: int) -> Document | None:
-    return session.get(Document, document_id)
+def get_document_for_user(
+    session: Session, document_id: int, user_id: int
+) -> Document | None:
+    statement = select(Document).where(
+        Document.id == document_id,
+        Document.user_id == user_id,
+    )
+    return session.exec(statement).first()
+
+
+# ---------- status / edit ----------
 
 def set_document_status(
     session: Session, document: Document, status: str
@@ -95,13 +111,11 @@ def update_invoice(
     invoice: Invoice,
     validation: ValidationResult,
 ) -> None:
-    """Обновляет поля инвойса, перезаписывает line_items и validation."""
     record = session.exec(
         select(InvoiceRecord).where(InvoiceRecord.document_id == document_id)
     ).first()
     if record is None:
         raise ValueError(f"No invoice record for document {document_id}")
-
 
     record.supplier_name = invoice.supplier_name
     record.invoice_number = invoice.invoice_number
@@ -113,7 +127,6 @@ def update_invoice(
     record.total = invoice.total
     session.add(record)
     session.commit()
-
 
     old_items = session.exec(
         select(LineItemRecord).where(LineItemRecord.invoice_id == record.id)
@@ -134,7 +147,6 @@ def update_invoice(
         )
     session.commit()
 
-
     old_val = session.exec(
         select(ValidationRecord).where(ValidationRecord.invoice_id == record.id)
     ).first()
@@ -151,3 +163,17 @@ def update_invoice(
         )
     )
     session.commit()
+
+
+# ---------- CSV export ----------
+
+def list_invoice_records_for_user(
+    session: Session, user_id: int
+) -> list[InvoiceRecord]:
+    statement = (
+        select(InvoiceRecord)
+        .join(Document, Document.id == InvoiceRecord.document_id)
+        .where(Document.user_id == user_id)
+        .order_by(InvoiceRecord.created_at.desc())
+    )
+    return list(session.exec(statement).all())

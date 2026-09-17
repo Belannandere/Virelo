@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Pricing</h1>
+        <p class="page-subtitle">Simple plans. No credit card required to start.</p>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card p-4">
+            <h2 class="section-title">Free</h2>
+            <div class="stat-value mb-3">$0<span style="font-size:1rem;font-weight:400;">/month</span></div>
+            <ul style="list-style:none; padding:0;">
+                <li class="mb-2"><span class="check" style="color: var(--success); font-weight:700;">✓</span> 10 invoices per month</li>
+                <li class="mb-2"><span class="check" style="color: var(--success); font-weight:700;">✓</span> AI extraction</li>
+                <li class="mb-2"><span class="check" style="color: var(--success); font-weight:700;">✓</span> CSV export</li>
+                <li class="mb-2"><span class="check" style="color: var(--success); font-weight:700;">✓</span> Local processing</li>
+            </ul>
+            {% if current_user %}
+                <a class="btn btn-outline-secondary btn-block" href="/upload">Start processing</a>
+            {% else %}
+                <a class="btn btn-primary btn-block" href="/register">Get started</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card p-4">
+            <h2 class="section-title">Pro</h2>
+            <div class="stat-value mb-3">$9<span style="font-size:1rem;font-weight:400;">/month</span></div>
+            <ul style="list-style:none; padding:0;">
+                <li class="mb-2"><span class="check" style="color: var(--success); font-weight:700;">✓</span> 100 invoices per month</li>
+                <li class="mb-2"><span class="check" style="color: var(--success); font-weight:700;">✓</span> Everything in Free</li>
+                <li class="mb-2"><span class="check" style="color: var(--success); font-weight:700;">✓</span> Priority support</li>
+            </ul>
+            <button class="btn btn-primary btn-block" type="button" disabled>Coming soon</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

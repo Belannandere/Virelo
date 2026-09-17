@@ -11,8 +11,13 @@
         Upload a PDF invoice and let AI extract, validate and organize the data for you.
     </p>
     <div class="hero-actions">
-        <a class="btn btn-primary btn-lg" href="/upload">Upload Invoice</a>
-        <a class="btn btn-outline-secondary btn-lg" href="/invoices">View invoices</a>
+        {% if current_user %}
+            <a class="btn btn-primary btn-lg" href="/upload">Upload Invoice</a>
+            <a class="btn btn-outline-secondary btn-lg" href="/invoices">View invoices</a>
+        {% else %}
+            <a class="btn btn-primary btn-lg" href="/register">Try Virelo</a>
+            <a class="btn btn-outline-secondary btn-lg" href="/login">Sign in</a>
+        {% endif %}
     </div>
     <ul class="hero-features">
         <li><span class="check">✓</span> AI-powered extraction</li>
@@ -22,7 +27,7 @@
 </section>
 
 <section class="upload-card">
-    <a href="/upload" class="dropzone-link">
+    <a href="{% if current_user %}/upload{% else %}/register{% endif %}" class="dropzone-link">
         <div class="dropzone">
             <div class="dropzone-icon">↑</div>
             <div class="dropzone-title">Drop your invoice here</div>
@@ -32,30 +37,24 @@
     </a>
 </section>
 
-<!-- ============ HOW IT WORKS ============ -->
 <section class="section">
     <div class="section-header">
         <h2>How it works</h2>
         <p>From invoice PDF to structured data in three simple steps.</p>
     </div>
-
     <div class="steps">
         <div class="step">
             <div class="step-icon" data-step="1">↑</div>
             <h3 class="step-title">Upload</h3>
             <p class="step-desc">Upload your invoice PDF</p>
         </div>
-
         <div class="step-arrow" aria-hidden="true">→</div>
-
         <div class="step">
             <div class="step-icon" data-step="2">✨</div>
             <h3 class="step-title">AI extracts</h3>
             <p class="step-desc">AI extracts the key invoice data</p>
         </div>
-
         <div class="step-arrow" aria-hidden="true">→</div>
-
         <div class="step">
             <div class="step-icon" data-step="3">✓</div>
             <h3 class="step-title">Review &amp; export</h3>
@@ -64,15 +63,12 @@
     </div>
 </section>
 
-<!-- ============ EXAMPLE RESULT ============ -->
 <section class="section">
     <div class="section-header">
         <h2>See what Virelo extracts</h2>
         <p>Turn an invoice PDF into clean, structured data in seconds.</p>
     </div>
-
     <div class="demo-card">
-        <!-- Left: PDF mock -->
         <div class="demo-pdf">
             <div class="demo-pdf-frame">
                 <div class="demo-pdf-header">
@@ -91,11 +87,8 @@
                 </div>
             </div>
         </div>
-
-        <!-- Right: extracted data -->
         <div class="demo-data">
             <div class="section-title">Extracted data</div>
-
             <div class="demo-row"><span>Vendor</span><span>Acme Inc.</span></div>
             <div class="demo-row"><span>Invoice #</span><span>INV-1042</span></div>
             <div class="demo-row"><span>Date</span><span>Mar 12, 2026</span></div>
@@ -103,7 +96,6 @@
             <div class="demo-row"><span>Subtotal</span><span>$1,240.00</span></div>
             <div class="demo-row"><span>Tax</span><span>$124.00</span></div>
             <div class="demo-row demo-row-total"><span>Total</span><span>$1,364.00</span></div>
-
             <div class="demo-actions">
                 <button type="button" class="btn btn-outline-secondary btn-sm">
                     ⬇ Download CSV

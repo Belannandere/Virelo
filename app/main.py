@@ -14,16 +14,34 @@ from fastapi import (
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlmodel import Session, select
+from sqlmodel import Session
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.ai import AIExtractionError, ai_extractor
+from app.auth import (
+    RequiresLogin,
+    get_current_user,
+    get_current_user_optional,
+    get_user_by_email,
+    hash_password,
+    login_user,
+    logout_user,
+    verify_password,
+)
 from app.config import settings
 from app.database import get_session, init_db
 from app.export import records_to_csv
-from app.models import Document, InvoiceRecord
+from app.limiter import (
+    release_slot,
+    remaining as remaining_slots,
+    reserve_slot,
+)
+from app.models import Document, User
 from app.pdf import PDFExtractionError, ScannedPDFError, pdf_extractor
 from app.repository import (
+    get_document_for_user,
     list_documents,
+    list_invoice_records_for_user,
     save_extraction,
     set_document_status,
     update_invoice,
@@ -36,6 +54,15 @@ BASE_DIR = Path(__file__).resolve().parent
 
 app = FastAPI(title="Virelo")
 
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.secret_key,
+    session_cookie="virelo_session",
+    max_age=settings.session_max_age,
+    same_site="lax",
+    https_only=False,  # set to True behind HTTPS in production
+)
+
 
 @app.on_event("startup")
 def on_startup() -> None:
@@ -46,13 +73,29 @@ app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 
+# =============================================================
+# Exception handler for auth
+# =============================================================
 
-# Home & health
+@app.exception_handler(RequiresLogin)
+def requires_login_handler(request: Request, exc: RequiresLogin):
+    return RedirectResponse(url="/login", status_code=303)
 
+
+# =============================================================
+# Public: landing, health, pricing
+# =============================================================
 
 @app.get("/", response_class=HTMLResponse)
-def index(request: Request):
-    return templates.TemplateResponse(request, "index.html", {"title": "Virelo"})
+def index(
+    request: Request,
+    user: User | None = Depends(get_current_user_optional),
+):
+    return templates.TemplateResponse(
+        request,
+        "index.html",
+        {"title": "Virelo", "current_user": user},
+    )
 
 
 @app.get("/health")
@@ -60,17 +103,159 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/pricing", response_class=HTMLResponse)
+def pricing(
+    request: Request,
+    user: User | None = Depends(get_current_user_optional),
+):
+    return templates.TemplateResponse(
+        request,
+        "pricing.html",
+        {"title": "Pricing", "current_user": user},
+    )
 
-# CSV export  
 
+# =============================================================
+# Auth: register / login / logout
+# =============================================================
+
+@app.get("/register", response_class=HTMLResponse)
+def register_form(
+    request: Request,
+    user: User | None = Depends(get_current_user_optional),
+):
+    if user is not None:
+        return RedirectResponse("/", status_code=303)
+    return templates.TemplateResponse(
+        request,
+        "register.html",
+        {"title": "Sign up", "error": None, "current_user": None},
+    )
+
+
+@app.post("/register", response_class=HTMLResponse)
+def register_submit(
+    request: Request,
+    email: str = Form(""),
+    password: str = Form(""),
+    password_confirm: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    email_clean = (email or "").strip().lower()
+
+    def _fail(message: str):
+        return templates.TemplateResponse(
+            request,
+            "register.html",
+            {"title": "Sign up", "error": message, "current_user": None},
+            status_code=400,
+        )
+
+    if "@" not in email_clean or len(email_clean) < 5:
+        return _fail("Please enter a valid email address.")
+    if not password or len(password) < 8:
+        return _fail("Password must be at least 8 characters long.")
+    if password != password_confirm:
+        return _fail("Passwords do not match.")
+    if len(password.encode("utf-8")) > 72:
+        return _fail("Password is too long.")
+    if get_user_by_email(session, email_clean) is not None:
+        return _fail("This email is already registered.")
+
+    user = User(email=email_clean, password_hash=hash_password(password))
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    login_user(request, user)
+    return RedirectResponse("/", status_code=303)
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_form(
+    request: Request,
+    user: User | None = Depends(get_current_user_optional),
+):
+    if user is not None:
+        return RedirectResponse("/", status_code=303)
+    return templates.TemplateResponse(
+        request,
+        "login.html",
+        {"title": "Log in", "error": None, "current_user": None},
+    )
+
+
+@app.post("/login", response_class=HTMLResponse)
+def login_submit(
+    request: Request,
+    email: str = Form(""),
+    password: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    email_clean = (email or "").strip().lower()
+    user = get_user_by_email(session, email_clean)
+
+    if user is None or not verify_password(password, user.password_hash):
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {
+                "title": "Log in",
+                "error": "Invalid email or password.",
+                "current_user": None,
+            },
+            status_code=401,
+        )
+
+    login_user(request, user)
+    return RedirectResponse("/", status_code=303)
+
+
+@app.get("/logout")
+def logout(request: Request):
+    logout_user(request)
+    return RedirectResponse("/login", status_code=303)
+
+
+# =============================================================
+# Account
+# =============================================================
+
+@app.get("/account", response_class=HTMLResponse)
+def account(
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    # Считаем всё в Python, чтобы шаблон получал готовые числа.
+    used = int(user.invoices_used or 0)
+    limit = int(user.invoices_limit or 0)
+    remaining = max(0, limit - used)
+    pct = min(100, round(used * 100 / limit)) if limit > 0 else 0
+
+    return templates.TemplateResponse(
+        request,
+        "account.html",
+        {
+            "title": "Account",
+            "current_user": user,
+            "usage_used": used,
+            "usage_limit": limit,
+            "usage_remaining": remaining,
+            "usage_pct": pct,
+        },
+    )
+
+
+# =============================================================
+# CSV export (must be BEFORE /invoices/{document_id})
+# =============================================================
 
 @app.get("/invoices/export.csv")
-def export_all_csv(session: Session = Depends(get_session)):
-    records = list(
-        session.exec(
-            select(InvoiceRecord).order_by(InvoiceRecord.created_at.desc())
-        ).all()
-    )
+def export_all_csv(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    records = list_invoice_records_for_user(session, user.id)
     csv_text = records_to_csv(records)
     return Response(
         content=csv_text,
@@ -79,34 +264,36 @@ def export_all_csv(session: Session = Depends(get_session)):
     )
 
 
-
+# =============================================================
 # Invoices list
-
+# =============================================================
 
 @app.get("/invoices", response_class=HTMLResponse)
 def invoices_list(
     request: Request,
+    user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    documents = list_documents(session)
+    documents = list_documents(session, user.id)
     return templates.TemplateResponse(
         request,
         "invoices.html",
-        {"title": "Invoices", "documents": documents},
+        {"title": "Invoices", "documents": documents, "current_user": user},
     )
 
 
-
+# =============================================================
 # Invoice detail
-
+# =============================================================
 
 @app.get("/invoices/{document_id}", response_class=HTMLResponse)
 def invoice_detail(
     document_id: int,
     request: Request,
+    user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    document = session.get(Document, document_id)
+    document = get_document_for_user(session, document_id, user.id)
     if document is None:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
@@ -158,22 +345,24 @@ def invoice_detail(
         "ai_error": None,
         "document_id": document.id,
         "status": document.status,
+        "current_user": user,
     }
     return templates.TemplateResponse(
         request, "result.html", {**ctx, "title": "Saved invoice"}
     )
 
 
-
+# =============================================================
 # Single-invoice CSV export
-
+# =============================================================
 
 @app.get("/invoices/{document_id}/export.csv")
 def export_invoice_csv(
     document_id: int,
+    user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    document = session.get(Document, document_id)
+    document = get_document_for_user(session, document_id, user.id)
     if document is None or document.invoice is None:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
@@ -186,16 +375,17 @@ def export_invoice_csv(
     )
 
 
-
+# =============================================================
 # Approve / Reject
-
+# =============================================================
 
 @app.post("/invoices/{document_id}/approve")
 def invoice_approve(
     document_id: int,
+    user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    document = session.get(Document, document_id)
+    document = get_document_for_user(session, document_id, user.id)
     if document is None:
         raise HTTPException(status_code=404, detail="Invoice not found")
     set_document_status(session, document, "approved")
@@ -205,37 +395,39 @@ def invoice_approve(
 @app.post("/invoices/{document_id}/reject")
 def invoice_reject(
     document_id: int,
+    user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    document = session.get(Document, document_id)
+    document = get_document_for_user(session, document_id, user.id)
     if document is None:
         raise HTTPException(status_code=404, detail="Invoice not found")
     set_document_status(session, document, "rejected")
     return RedirectResponse(url=f"/invoices/{document_id}", status_code=303)
 
 
-
+# =============================================================
 # Edit
-
+# =============================================================
 
 @app.get("/invoices/{document_id}/edit", response_class=HTMLResponse)
 def invoice_edit_form(
     document_id: int,
     request: Request,
+    user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    document = session.get(Document, document_id)
+    document = get_document_for_user(session, document_id, user.id)
     if document is None or document.invoice is None:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    record = document.invoice
     return templates.TemplateResponse(
         request,
         "edit.html",
         {
             "title": "Edit invoice",
             "document_id": document_id,
-            "record": record,
+            "record": document.invoice,
+            "current_user": user,
         },
     )
 
@@ -243,6 +435,7 @@ def invoice_edit_form(
 @app.post("/invoices/{document_id}/edit")
 def invoice_edit_submit(
     document_id: int,
+    user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
     supplier_name: str = Form(""),
     invoice_number: str = Form(""),
@@ -253,7 +446,7 @@ def invoice_edit_submit(
     tax: str = Form(""),
     total: str = Form(""),
 ):
-    document = session.get(Document, document_id)
+    document = get_document_for_user(session, document_id, user.id)
     if document is None or document.invoice is None:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
@@ -282,8 +475,6 @@ def invoice_edit_submit(
         line_items=[],
     )
 
-    validation = validate_invoice(edited)
-
     for li in document.invoice.line_items:
         edited.line_items.append(
             LineItem(
@@ -294,6 +485,8 @@ def invoice_edit_submit(
             )
         )
 
+    validation = validate_invoice(edited)
+
     update_invoice(
         session,
         document_id=document_id,
@@ -303,14 +496,26 @@ def invoice_edit_submit(
     return RedirectResponse(url=f"/invoices/{document_id}", status_code=303)
 
 
-
+# =============================================================
 # Upload
-
+# =============================================================
 
 @app.get("/upload", response_class=HTMLResponse)
-def upload_form(request: Request):
+def upload_form(
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    limit_reached = user.invoices_used >= user.invoices_limit
     return templates.TemplateResponse(
-        request, "upload.html", {"title": "Upload Invoice", "error": None}
+        request,
+        "upload.html",
+        {
+            "title": "Upload Invoice",
+            "error": None,
+            "current_user": user,
+            "limit_reached": limit_reached,
+            "remaining": remaining_slots(user),
+        },
     )
 
 
@@ -318,22 +523,56 @@ def upload_form(request: Request):
 async def upload_submit(
     request: Request,
     file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    # --- 1. Validation of uploaded file ---
+    # --- Limit check + reserve slot BEFORE any heavy work ---
+    try:
+        reserve_slot(user, session)
+    except HTTPException:
+        return templates.TemplateResponse(
+            request,
+            "upload.html",
+            {
+                "title": "Upload Invoice",
+                "error": "You've reached your monthly limit.",
+                "current_user": user,
+                "limit_reached": True,
+                "remaining": 0,
+            },
+            status_code=403,
+        )
+
+    slot_reserved = True
+
+    def _release():
+        nonlocal slot_reserved
+        if slot_reserved:
+            release_slot(user, session)
+            slot_reserved = False
+
+    # --- 1. Validate uploaded file ---
     if not file.filename or not file.filename.lower().endswith(".pdf"):
-        return _upload_error(request, "Please upload a PDF file.")
+        _release()
+        return _upload_error(request, user, "Please upload a PDF file.")
 
     content = await file.read()
     max_bytes = settings.max_upload_mb * 1024 * 1024
     if len(content) > max_bytes:
+        _release()
         return _upload_error(
-            request, f"File is too large. Max size is {settings.max_upload_mb} MB."
+            request,
+            user,
+            f"File is too large. Max size is {settings.max_upload_mb} MB.",
         )
     if len(content) == 0:
-        return _upload_error(request, "The file is empty.")
+        _release()
+        return _upload_error(request, user, "The file is empty.")
     if not content.startswith(b"%PDF"):
-        return _upload_error(request, "This file does not look like a valid PDF.")
+        _release()
+        return _upload_error(
+            request, user, "This file does not look like a valid PDF."
+        )
 
     # --- 2. Save file on disk ---
     safe_name = Path(file.filename).name
@@ -352,6 +591,7 @@ async def upload_submit(
         "ai_error": None,
         "document_id": None,
         "status": None,
+        "current_user": user,
     }
 
     # --- 3. Extract text from PDF ---
@@ -363,6 +603,7 @@ async def upload_submit(
             ctx["pdf_error"] = str(exc)
             doc = save_extraction(
                 session,
+                user_id=user.id,
                 filename=safe_name,
                 filepath=filepath,
                 invoice=None,
@@ -370,6 +611,8 @@ async def upload_submit(
             )
             ctx["document_id"] = doc.id
             ctx["status"] = doc.status
+            # No invoice was actually produced → release the slot
+            _release()
             return templates.TemplateResponse(
                 request, "result.html", {**ctx, "title": "Scanned PDF"}
             )
@@ -377,6 +620,7 @@ async def upload_submit(
             ctx["pdf_error"] = f"Could not extract text: {exc}"
             doc = save_extraction(
                 session,
+                user_id=user.id,
                 filename=safe_name,
                 filepath=filepath,
                 invoice=None,
@@ -384,6 +628,7 @@ async def upload_submit(
             )
             ctx["document_id"] = doc.id
             ctx["status"] = doc.status
+            _release()
             return templates.TemplateResponse(
                 request, "result.html", {**ctx, "title": "Extraction failed"}
             )
@@ -404,6 +649,7 @@ async def upload_submit(
     with timer("db_save"):
         doc = save_extraction(
             session,
+            user_id=user.id,
             filename=safe_name,
             filepath=filepath,
             invoice=invoice,
@@ -412,19 +658,29 @@ async def upload_submit(
     ctx["document_id"] = doc.id
     ctx["status"] = doc.status
 
+    # If AI failed, no usable invoice was produced → release the slot
+    if invoice is None:
+        _release()
+
     return templates.TemplateResponse(
         request, "result.html", {**ctx, "title": "Extraction result"}
     )
 
 
-
+# =============================================================
 # Helpers
+# =============================================================
 
-
-def _upload_error(request: Request, message: str):
+def _upload_error(request: Request, user: User, message: str):
     return templates.TemplateResponse(
         request,
         "upload.html",
-        {"title": "Upload Invoice", "error": message},
+        {
+            "title": "Upload Invoice",
+            "error": message,
+            "current_user": user,
+            "limit_reached": user.invoices_used >= user.invoices_limit,
+            "remaining": remaining_slots(user),
+        },
         status_code=400,
     )
