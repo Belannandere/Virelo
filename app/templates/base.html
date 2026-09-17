@@ -11,6 +11,7 @@
 <body>
     <nav class="app-navbar">
         <div class="container app-navbar-inner">
+            {# --- LEFT: brand --- #}
             <a class="app-brand" href="/">
                 <svg class="app-brand-mark" width="32" height="32" viewBox="0 0 32 32"
                      xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -30,11 +31,63 @@
                 </svg>
                 <span class="app-brand-name">Virelo</span>
             </a>
-            <div class="app-nav-links">
-                <a class="app-nav-link {% if request.url.path.startswith('/invoices') %}is-active{% endif %}"
-                   href="/invoices">Invoices</a>
-                <a class="app-nav-link {% if request.url.path.startswith('/upload') %}is-active{% endif %}"
-                   href="/upload">Upload</a>
+
+            {# --- CENTER: primary navigation --- #}
+            <div class="app-nav-center">
+                {% if current_user %}
+                    <a class="app-nav-link {% if request.url.path.startswith('/invoices') %}is-active{% endif %}"
+                       href="/invoices">Invoices</a>
+                    <a class="app-nav-link {% if request.url.path.startswith('/upload') %}is-active{% endif %}"
+                       href="/upload">Upload</a>
+                {% endif %}
+                <a class="app-nav-link {% if request.url.path == '/pricing' %}is-active{% endif %}"
+                   href="/pricing">Pricing</a>
+            </div>
+
+            {# --- RIGHT: auth actions --- #}
+            <div class="app-nav-right">
+                {% if current_user %}
+                    {% set used = current_user.invoices_used or 0 %}
+                    {% set limit = current_user.invoices_limit or 0 %}
+                    <span class="usage-pill" title="Monthly invoices used">
+                        {{ used }} / {{ limit }}
+                    </span>
+
+                    <div class="account-menu" id="account-menu">
+                        <button type="button"
+                                class="account-menu-trigger"
+                                id="account-menu-trigger"
+                                aria-haspopup="true"
+                                aria-expanded="false"
+                                aria-controls="account-menu-dropdown">
+                            <span class="account-menu-avatar" aria-hidden="true">
+                                {{ current_user.email[0]|upper }}
+                            </span>
+                            <span class="account-menu-caret" aria-hidden="true">
+                                <svg width="10" height="10" viewBox="0 0 10 10">
+                                    <path d="M1 3 L5 7 L9 3" stroke="currentColor" stroke-width="1.6"
+                                          fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </span>
+                        </button>
+
+                        <div class="account-menu-dropdown" id="account-menu-dropdown" role="menu" hidden>
+                            <div class="account-menu-header">
+                                <div class="account-menu-header-email">{{ current_user.email }}</div>
+                                <div class="account-menu-header-plan">
+                                    {{ current_user.plan|capitalize }} plan
+                                </div>
+                            </div>
+                            <a class="account-menu-item" role="menuitem" href="/account">Account</a>
+                            <a class="account-menu-item" role="menuitem" href="/account#usage">Usage</a>
+                            <div class="account-menu-sep"></div>
+                            <a class="account-menu-item account-menu-item-danger" role="menuitem" href="/logout">Logout</a>
+                        </div>
+                    </div>
+                {% else %}
+                    <a class="app-nav-link" href="/login">Log in</a>
+                    <a class="btn btn-primary btn-sm" href="/register">Get started</a>
+                {% endif %}
             </div>
         </div>
     </nav>
@@ -42,5 +95,39 @@
     <main class="container app-main">
         {% block content %}{% endblock %}
     </main>
+
+    <script>
+    (function () {
+        var menu = document.getElementById('account-menu');
+        if (!menu) return;
+
+        var trigger = document.getElementById('account-menu-trigger');
+        var dropdown = document.getElementById('account-menu-dropdown');
+
+        function open() {
+            dropdown.hidden = false;
+            trigger.setAttribute('aria-expanded', 'true');
+            menu.classList.add('is-open');
+        }
+        function close() {
+            dropdown.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+            menu.classList.remove('is-open');
+        }
+
+        trigger.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (dropdown.hidden) open(); else close();
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!menu.contains(e.target)) close();
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') close();
+        });
+    })();
+    </script>
 </body>
 </html>
