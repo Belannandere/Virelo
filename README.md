@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # Virelo
+=======
+#  Virelo
+>>>>>>> 017b3cf (Rebrand to Virelo, add timing, optimize AI)
 
 Локальный MVP для автоматического извлечения данных из PDF-инвойсов
 с помощью локальной LLM (Ollama + Llama 3.2).
